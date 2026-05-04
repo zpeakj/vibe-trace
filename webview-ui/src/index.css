@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@utility animate-slide-in {
+  animation: slide-in 0.25s ease-out;
+}
+
+/* Override ReactFlow Controls default light theme */
+.react-flow__controls {
+  background: #1f2937 !important;
+  border: 1px solid #374151 !important;
+  border-radius: 8px !important;
+  padding: 4px !important;
+}
+
+.react-flow__controls-button {
+  background: #374151 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  width: 28px !important;
+  height: 28px !important;
+  color: #e5e7eb !important;
+}
+
+.react-flow__controls-button:hover {
+  background: #4b5563 !important;
+}
+
+.react-flow__controls-button svg {
+  fill: #e5e7eb !important;
+}

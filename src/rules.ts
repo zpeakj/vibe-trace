@@ -1,0 +1,180 @@
+import * as vscode from 'vscode';
+import * as path from 'path';
+
+export type EditorType = 'cursor' | 'codex' | 'trae';
+
+export const RULES_FILES: Record<EditorType, string> = {
+  cursor: '.cursorrules',
+  codex: 'AGENTS.md',
+  trae: 'RULES.md',
+};
+
+export const EDITOR_LABELS: Record<EditorType, string> = {
+  cursor: 'Cursor',
+  codex: 'Codex (OpenAI)',
+  trae: 'Trae (字节跳动)',
+};
+
+export const CURSOR_RULES_CONTENT = `# VibeTrace — Automatic Conversation Recording
+
+You are an agent in a VibeTrace-enabled project. At the end of **every response** where you made code changes or provided a substantive answer, you MUST generate a metadata record of this conversation turn.
+
+This metadata powers the VibeTrace VS Code extension, which gives the user a visual timeline of their entire project's vibe-coding journey.
+
+---
+
+## 1. Determine Session ID
+
+The \`session_id\` identifies which agent window this conversation belongs to. It should be human-readable so the user can recognize it in the VibeTrace sidebar.
+
+- **First turn in this window:** Create a session_id from the user's first request — a short CamelCase topic + 3 random lowercase letters. Example: user asks "add login page" → \`LoginPage-k7m\`.
+- **Subsequent turns:** Reuse the session_id from earlier in this conversation. Do not change it.
+
+---
+
+## 2. Determine Module
+
+The \`module\` field classifies which business feature this turn belongs to.
+
+- **BEFORE** assigning a module, you MUST read the file \`.vibe/MODULE_DICT.md\` using the Read File tool.
+- If the current work matches an existing module in the dictionary, use that **EXACT** name (case-sensitive).
+- If NO existing module matches, you may create a new one.
+  - New module names should be short CamelCase (e.g., \`UserProfile\`, \`PaymentGateway\`, \`DashboardUI\`).
+  - Do NOT create variants of existing modules (e.g., if \`Auth\` exists, do NOT create \`Authentication\` or \`auth\`).
+
+---
+
+## 3. Generate the Metadata JSON
+
+After completing the user's request, create a JSON file with the following structure:
+
+\`\`\`json
+{
+  "id": "<YYYYMMDD>-<session_id>-<3randomchars>",
+  "session_id": "<ShortTopic>-<3chars>, e.g. WechatQrLogin-a3f",
+  "module": "<your determined module name>",
+
+  "intent": "<1-sentence condensation of what the USER asked for>",
+  "summary": "<1-sentence summary of what YOU did to fulfill it>",
+
+  "impactFiles": [
+    {
+      "path": "relative/path/to/file.ts",
+      "action": "create | modify | delete | read",
+      "description": "<one-line description of what changed and why>"
+    }
+  ],
+
+  "unresolved_issues": "<optional — things left undone, config needed, follow-up required>"
+}
+\`\`\`
+
+### Field rules:
+
+- **id**: \`<YYYYMMDD>-<session_id>-<3 random chars>\`. Use the current date from your context. Example: \`20260504-LoginPage-k7m-x9k\`.
+- **intent**: be specific and actionable. "Add login" is bad. "Add WeChat QR code login button to the login modal" is good. This is the node label on the user's graph.
+- **summary**: describe what you actually implemented, from YOUR perspective. This appears in hover tooltips.
+- **impactFiles**: list EVERY file you created, modified, deleted, or read significantly.
+  - \`path\`: relative to the project root.
+  - \`action\`: \`create\` (new file), \`modify\` (changed existing file), \`delete\` (removed file), \`read\` (important read-only reference).
+  - \`description\`: be specific (e.g., "added wechat_openid field to user store" not "updated store").
+- **unresolved_issues**: if you left something incomplete, pending config, or needing follow-up, note it here. Otherwise omit this field entirely.
+
+> **Note:** Do NOT include a \`timestamp\` field. The VibeTrace plugin automatically stamps the exact time when it processes the file.
+
+---
+
+## 4. Save the File
+
+Write the JSON to the following path:
+
+\`\`\`
+.vibe/events/<id>.json
+\`\`\`
+
+Use the exact \`id\` from your generated JSON as the filename (e.g., \`.vibe/events/20260504-WechatQrLogin-a3f-x9k.json\`).
+
+Create the \`.vibe/events/\` directory if it does not already exist.
+
+---
+
+## 5. When to Skip
+
+Do NOT generate a metadata record if:
+
+- The user's message was purely conversational (e.g., "thanks", "what does git status do?").
+- You only answered a question without making any code changes or substantive analysis.
+- The user asked you to explain something without requesting any action.
+
+When in doubt, generate the record. It is better to have an extra entry than a missing one.
+
+---
+
+## Quick Checklist
+
+Before writing the JSON file, verify:
+
+- [ ] Read \`.vibe/MODULE_DICT.md\` to check existing modules
+- [ ] Determined session_id (new or inherited from history)
+- [ ] id has format: \`<YYYYMMDD>-<session_id>-<3random>\`
+- [ ] intent summarizes what the USER asked
+- [ ] summary summarizes what YOU did
+- [ ] impactFiles includes all touched files with specific descriptions
+- [ ] unresolved_issues is included only if something is genuinely unresolved
+- [ ] NO \`timestamp\` field is included (plugin handles this automatically)
+`;
+
+const VIBETRACE_MARKER = 'VibeTrace — Automatic Conversation Recording';
+
+/**
+ * Check if a .cursorrules file already contains VibeTrace rules.
+ */
+export function hasVibeTraceRules(content: string): boolean {
+  return content.includes(VIBETRACE_MARKER);
+}
+
+/**
+ * Merge VibeTrace rules into an existing .cursorrules file.
+ * Appends after existing content with a separator.
+ */
+export function mergeRules(existingContent: string): string {
+  if (hasVibeTraceRules(existingContent)) {
+    // Replace existing VibeTrace section
+    const markerIdx = existingContent.indexOf(VIBETRACE_MARKER);
+    return existingContent.slice(0, markerIdx).trimEnd() + '\n\n' + CURSOR_RULES_CONTENT;
+  }
+  return existingContent.trimEnd() + '\n\n---\n\n' + CURSOR_RULES_CONTENT;
+}
+
+/**
+ * Write or update the AI rules file for a given editor type.
+ * Returns the result status.
+ */
+export async function setupRules(
+  workspaceRoot: string,
+  editorType: EditorType
+): Promise<'created' | 'updated' | 'unchanged'> {
+  const filename = RULES_FILES[editorType];
+  const rulesPath = path.join(workspaceRoot, filename);
+  const rulesUri = vscode.Uri.file(rulesPath);
+
+  try {
+    const existingRaw = await vscode.workspace.fs.readFile(rulesUri);
+    const existing = existingRaw.toString();
+
+    if (hasVibeTraceRules(existing)) {
+      return 'unchanged';
+    }
+
+    const merged = mergeRules(existing);
+    await vscode.workspace.fs.writeFile(rulesUri, Buffer.from(merged, 'utf-8'));
+    return 'updated';
+  } catch {
+    // File doesn't exist — create it
+    await vscode.workspace.fs.writeFile(
+      rulesUri,
+      Buffer.from(CURSOR_RULES_CONTENT, 'utf-8')
+    );
+    return 'created';
+  }
+}

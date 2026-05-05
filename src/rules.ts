@@ -3,10 +3,11 @@ import * as path from 'path';
 
 export type EditorType = 'cursor' | 'codex' | 'trae';
 
+/** Relative path from workspace root to the rules file for each editor. */
 export const RULES_FILES: Record<EditorType, string> = {
-  cursor: '.cursorrules',
+  cursor: '.cursor/rules/vibetrace-core.mdc',
   codex: 'AGENTS.md',
-  trae: 'RULES.md',
+  trae: '.trae/rules/project_rules.md',
 };
 
 export const EDITOR_LABELS: Record<EditorType, string> = {
@@ -15,7 +16,9 @@ export const EDITOR_LABELS: Record<EditorType, string> = {
   trae: 'Trae (字节跳动)',
 };
 
-export const CURSOR_RULES_CONTENT = `# VibeTrace — Automatic Conversation Recording
+// ── Shared rules body (editor-agnostic) ──────────────────
+
+const RULES_BODY = `# VibeTrace — Automatic Conversation Recording
 
 You are an agent in a VibeTrace-enabled project. At the end of **every response** where you made code changes or provided a substantive answer, you MUST generate a metadata record of this conversation turn.
 
@@ -124,39 +127,71 @@ Before writing the JSON file, verify:
 - [ ] NO \`timestamp\` field is included (plugin handles this automatically)
 `;
 
+/** Plain markdown version — used for Codex, Trae, and clipboard copy. */
+export const CURSOR_RULES_CONTENT = RULES_BODY;
+
+/** Cursor .mdc format — YAML frontmatter + rules body. */
+export const CURSOR_MDC_CONTENT = `---
+description: VibeTrace — Automatic conversation recording for vibe-coding traceability
+globs: **/*
+alwaysApply: true
+---
+${RULES_BODY}`;
+
+/** Per-editor content to write. */
+export function getRulesContent(editorType: EditorType): string {
+  switch (editorType) {
+    case 'cursor':
+      return CURSOR_MDC_CONTENT;
+    case 'codex':
+    case 'trae':
+    default:
+      return RULES_BODY;
+  }
+}
+
 const VIBETRACE_MARKER = 'VibeTrace — Automatic Conversation Recording';
 
 /**
- * Check if a .cursorrules file already contains VibeTrace rules.
+ * Check if a rules file already contains VibeTrace rules.
  */
 export function hasVibeTraceRules(content: string): boolean {
   return content.includes(VIBETRACE_MARKER);
 }
 
 /**
- * Merge VibeTrace rules into an existing .cursorrules file.
+ * Merge VibeTrace rules into an existing rules file.
  * Appends after existing content with a separator.
  */
-export function mergeRules(existingContent: string): string {
+export function mergeRules(existingContent: string, editorType: EditorType): string {
+  const content = getRulesContent(editorType);
   if (hasVibeTraceRules(existingContent)) {
-    // Replace existing VibeTrace section
     const markerIdx = existingContent.indexOf(VIBETRACE_MARKER);
-    return existingContent.slice(0, markerIdx).trimEnd() + '\n\n' + CURSOR_RULES_CONTENT;
+    return existingContent.slice(0, markerIdx).trimEnd() + '\n\n' + content;
   }
-  return existingContent.trimEnd() + '\n\n---\n\n' + CURSOR_RULES_CONTENT;
+  return existingContent.trimEnd() + '\n\n---\n\n' + content;
 }
 
 /**
  * Write or update the AI rules file for a given editor type.
+ * Creates parent directories as needed.
  * Returns the result status.
  */
 export async function setupRules(
   workspaceRoot: string,
   editorType: EditorType
 ): Promise<'created' | 'updated' | 'unchanged'> {
-  const filename = RULES_FILES[editorType];
-  const rulesPath = path.join(workspaceRoot, filename);
+  const relPath = RULES_FILES[editorType];
+  const rulesPath = path.join(workspaceRoot, relPath);
   const rulesUri = vscode.Uri.file(rulesPath);
+
+  // Ensure parent directories exist (needed for .cursor/rules/ and .trae/rules/)
+  const parentDir = vscode.Uri.file(path.dirname(rulesPath));
+  try {
+    await vscode.workspace.fs.stat(parentDir);
+  } catch {
+    await vscode.workspace.fs.createDirectory(parentDir);
+  }
 
   try {
     const existingRaw = await vscode.workspace.fs.readFile(rulesUri);
@@ -166,15 +201,13 @@ export async function setupRules(
       return 'unchanged';
     }
 
-    const merged = mergeRules(existing);
+    const merged = mergeRules(existing, editorType);
     await vscode.workspace.fs.writeFile(rulesUri, Buffer.from(merged, 'utf-8'));
     return 'updated';
   } catch {
     // File doesn't exist — create it
-    await vscode.workspace.fs.writeFile(
-      rulesUri,
-      Buffer.from(CURSOR_RULES_CONTENT, 'utf-8')
-    );
+    const content = getRulesContent(editorType);
+    await vscode.workspace.fs.writeFile(rulesUri, Buffer.from(content, 'utf-8'));
     return 'created';
   }
 }

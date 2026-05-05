@@ -1,7 +1,13 @@
 .vscode/**
 .git/**
 .gitignore
-node_modules/**
+.cursorrules
+.cursor/
+.trae/
+node_modules
+webview-ui/node_modules
+webview-ui/src
 src/**
 tsconfig.json
+media/icon.png
 *.vsix

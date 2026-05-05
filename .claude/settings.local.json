@@ -5,7 +5,9 @@
       "Bash(npx tsc *)",
       "Bash(npm run *)",
       "Bash(npx vite *)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(npx vsce *)",
+      "Bash(node -e ' *)"
     ]
   }
 }

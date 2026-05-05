@@ -4,13 +4,29 @@
   "description": "Vibe coding process chain recorder & visualizer — never lose context across agent windows",
   "version": "0.1.0",
   "publisher": "vibetrace",
+  "author": {
+    "name": "zpeakj"
+  },
   "license": "MIT",
-  "icon": "media/icon.png",
+  "homepage": "https://github.com/zpeakj/vibe-trace",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zpeakj/vibe-trace"
+  },
+  "bugs": {
+    "url": "https://github.com/zpeakj/vibe-trace/issues"
+  },
+  "icon": "res/logo.png",
+  "keywords": [
+    "vibe-coding",
+    "trace",
+    "manage vibe-coding project"
+  ],
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other"
+    "Visualization"
   ],
   "activationEvents": [
     "onStartupFinished"
@@ -22,7 +38,7 @@
         {
           "id": "vibetrace",
           "title": "VibeTrace",
-          "icon": "media/icon.svg"
+          "icon": "res/logo.svg"
         }
       ]
     },
@@ -189,6 +205,7 @@
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
+    "sharp": "^0.34.5",
     "typescript": "^5.3.0"
   }
 }

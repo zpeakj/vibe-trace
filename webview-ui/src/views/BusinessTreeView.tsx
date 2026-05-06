@@ -14,9 +14,10 @@ import {
   type NodeProps,
   type NodeChange,
   type EdgeChange,
+  type Connection,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { VibeEvent, openFile } from '../api';
+import { VibeEvent, openFile, updateEventModule } from '../api';
 import { filterBusinessFiles } from '../utils/filter';
 import { cn } from '../utils/cn';
 import dagre from '@dagrejs/dagre';
@@ -29,6 +30,7 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
 
 // ── Dagre auto-layout ──────────────────────────────────
@@ -91,7 +93,7 @@ function RootNode({ data }: NodeProps) {
 
   return (
     <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-6 py-4 shadow-lg shadow-emerald-500/5 backdrop-blur-sm text-center min-w-[200px] relative">
-      <Handle type="source" position={Position.Bottom} className="!bg-emerald-500 !w-3 !h-3 !border-2 !border-emerald-800" />
+      <Handle type="source" position={Position.Bottom} isConnectable={false} className="!bg-emerald-500 !w-3 !h-3 !border-2 !border-emerald-800" />
       {hasChildren && (
         <button
           onClick={(e) => { e.stopPropagation(); onToggleCollapse?.(); }}
@@ -122,7 +124,7 @@ function ModuleNode({ data }: NodeProps) {
 
   return (
     <div className="rounded-lg border border-blue-500/30 bg-blue-500/8 px-5 py-3 shadow-lg backdrop-blur-sm min-w-[180px] text-center relative">
-      <Handle type="target" position={Position.Top} className="!bg-blue-500 !w-3 !h-3 !border-2 !border-blue-800" />
+      <Handle type="target" position={Position.Top} isConnectable={false} className="!bg-blue-500 !w-3 !h-3 !border-2 !border-blue-800" />
       {hasChildren && (
         <button
           onClick={(e) => { e.stopPropagation(); onToggleCollapse?.(); }}
@@ -153,6 +155,8 @@ function ModuleNode({ data }: NodeProps) {
 function CompactIntentNode({ data }: NodeProps) {
   const event = data.event as VibeEvent;
   const fileCount = event.impactFiles.length;
+  const seq = data.seq as number | undefined;
+  const baseLabel = (data.label as string).replace(/^#\d+\s+/, '');
 
   return (
     <div
@@ -164,9 +168,12 @@ function CompactIntentNode({ data }: NodeProps) {
     >
       <Handle type="target" position={Position.Top} className="!bg-zinc-500 !w-3 !h-3 !border-2 !border-zinc-800" />
       <div className="flex items-center gap-1.5">
+        {seq !== undefined && (
+          <span className="text-[11px] font-bold text-cyan-400 shrink-0">#{seq}</span>
+        )}
         <FileCode className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
         <span className="font-semibold text-xs text-zinc-100 truncate leading-tight">
-          {data.label as string}
+          {baseLabel}
         </span>
       </div>
       <div className="flex items-center gap-1.5 mt-1.5">
@@ -189,7 +196,7 @@ const nodeTypes = {
 
 // ── Data transform ──────────────────────────────────────
 
-function eventsToTree(events: VibeEvent[]): { nodes: Node[]; edges: Edge[] } {
+function eventsToTree(events: VibeEvent[], projectName: string): { nodes: Node[]; edges: Edge[] } {
   const rawNodes: Node[] = [];
   const edges: Edge[] = [];
 
@@ -198,7 +205,7 @@ function eventsToTree(events: VibeEvent[]): { nodes: Node[]; edges: Edge[] } {
       id: 'root',
       type: 'rootNode',
       position: { x: 0, y: 0 },
-      data: { label: 'VibeTrace Project', subtitle: 'No events recorded yet' },
+      data: { label: projectName, subtitle: 'No events recorded yet' },
     });
     return { nodes: rawNodes, edges };
   }
@@ -208,7 +215,7 @@ function eventsToTree(events: VibeEvent[]): { nodes: Node[]; edges: Edge[] } {
     type: 'rootNode',
     position: { x: 0, y: 0 },
     data: {
-      label: 'VibeTrace Project',
+      label: projectName,
       subtitle: `${events.length} event${events.length > 1 ? 's' : ''} across multiple modules`,
     },
   });
@@ -276,8 +283,43 @@ function eventsToTree(events: VibeEvent[]): { nodes: Node[]; edges: Edge[] } {
     }
   }
 
-  // Run dagre auto-layout
+  // Run dagre auto-layout (positions Root + ModuleNodes)
   const nodes = layoutTree(rawNodes, edges);
+
+  // Post-process: stack IntentNodes vertically under their parent ModuleNode
+  // (purely visual — edge structure is unchanged)
+  const moduleIntentMap = new Map<string, string[]>();
+  for (const edge of edges) {
+    if (edge.source.startsWith('module-')) {
+      const list = moduleIntentMap.get(edge.source) ?? [];
+      list.push(edge.target);
+      moduleIntentMap.set(edge.source, list);
+    }
+  }
+
+  const nodeLookup = new Map(nodes.map((n) => [n.id, n]));
+
+  for (const [moduleId, intentIds] of moduleIntentMap) {
+    const moduleNode = nodeLookup.get(moduleId);
+    if (!moduleNode) continue;
+
+    const mx = moduleNode.position.x;
+    const my = moduleNode.position.y;
+    const intentX = mx + (MODULE_WIDTH - NODE_WIDTH) / 2;
+
+    intentIds.forEach((intentId, idx) => {
+      const node = nodeLookup.get(intentId);
+      if (!node) return;
+
+      node.position = {
+        x: intentX,
+        y: my + MODULE_HEIGHT + 30 + idx * (NODE_HEIGHT + 30),
+      };
+
+      const baseLabel = (node.data.label as string).replace(/^#\d+\s+/, '');
+      node.data = { ...node.data, label: `#${idx + 1} ${baseLabel}`, seq: idx + 1, seqTotal: intentIds.length };
+    });
+  }
 
   return { nodes, edges };
 }
@@ -349,6 +391,16 @@ function EventDrawer({ event, onClose }: DrawerProps) {
           </div>
         </div>
 
+        {event.original_prompt && (
+          <div>
+            <h4 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">
+              Original Prompt
+            </h4>
+            <p className="text-sm text-zinc-400/80 italic leading-relaxed">
+              &ldquo;{event.original_prompt}&rdquo;
+            </p>
+          </div>
+        )}
         <div>
           <h4 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">
             Summary
@@ -419,10 +471,11 @@ function EventDrawer({ event, onClose }: DrawerProps) {
 
 interface Props {
   events: VibeEvent[];
+  projectName: string;
 }
 
-export function BusinessTreeView({ events }: Props) {
-  const tree = useMemo(() => eventsToTree(events), [events]);
+export function BusinessTreeView({ events, projectName }: Props) {
+  const tree = useMemo(() => eventsToTree(events, projectName), [events, projectName]);
 
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [selectedEvent, setSelectedEvent] = useState<VibeEvent | null>(null);
@@ -484,11 +537,12 @@ export function BusinessTreeView({ events }: Props) {
 
   const [nodes, setNodes] = useState<Node[]>(visibleNodes);
   const [edges, setEdges] = useState<Edge[]>(visibleEdges);
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
   const dataKey = useMemo(() => {
     if (events.length === 0) return 'empty';
-    return `${events.map((e) => e.id).sort().join('|')}--${[...collapsedIds].sort().join(',')}`;
-  }, [events, collapsedIds]);
+    return `${events.map((e) => `${e.id}:${e.module}`).sort().join('|')}--${[...collapsedIds].sort().join(',')}--r${refreshCounter}`;
+  }, [events, collapsedIds, refreshCounter]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
@@ -508,6 +562,16 @@ export function BusinessTreeView({ events }: Props) {
 
   const onPaneClick = useCallback(() => {
     setSelectedEvent(null);
+  }, []);
+
+  const onConnect = useCallback((params: Connection) => {
+    // User drags from IntentNode to a (different) ModuleNode
+    // params.source / params.target can be either node depending on drag direction
+    const sourceIsModule = params.source.startsWith('module-');
+    const eventId = sourceIsModule ? params.target : params.source;
+    const moduleId = sourceIsModule ? params.source : params.target;
+    const newModule = moduleId.replace('module-', '');
+    updateEventModule(eventId, newModule);
   }, []);
 
   if (events.length === 0) {
@@ -534,6 +598,7 @@ export function BusinessTreeView({ events }: Props) {
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
+        onConnect={onConnect}
         nodeTypes={nodeTypes}
         defaultEdgeOptions={{
           type: 'smoothstep',
@@ -552,7 +617,15 @@ export function BusinessTreeView({ events }: Props) {
         proOptions={{ hideAttribution: true }}
       >
         <Background color="#27272a" gap={24} size={0.5} />
-        <Controls position="bottom-right" />
+        <Controls position="bottom-right">
+          <button
+            onClick={() => setRefreshCounter((c) => c + 1)}
+            className="react-flow__controls-button"
+            title="Refresh view"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+        </Controls>
         <MiniMap
           style={{ backgroundColor: '#18181b' }}
           maskColor="rgba(24,24,27,0.7)"

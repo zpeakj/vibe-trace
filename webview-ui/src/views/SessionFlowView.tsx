@@ -185,6 +185,11 @@ export function SessionFlowView({ events }: Props) {
                     <h3 className="font-semibold text-sm text-zinc-100">
                       {ev.intent}
                     </h3>
+                    {ev.original_prompt && (
+                      <p className="text-[11px] text-zinc-500/70 italic mt-1.5 leading-relaxed">
+                        &ldquo;{ev.original_prompt}&rdquo;
+                      </p>
+                    )}
                     <p className="text-xs text-zinc-500 mt-1.5 leading-relaxed">
                       {ev.summary}
                     </p>

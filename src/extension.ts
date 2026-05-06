@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { DataProvider, isProjectInitialized } from './data-provider';
+import { DataProvider, isProjectInitialized, saveEditorType, getEditorType } from './data-provider';
 import { ModuleDict } from './module-dict';
 import { GlobalTimelineProvider } from './views/global-timeline';
 import { FeatureTreeProvider } from './views/feature-tree';
@@ -13,7 +13,7 @@ let dataProvider: DataProvider;
 let moduleDict: ModuleDict;
 let dashboardManager: WebviewPanelManager;
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
   const root = getWorkspaceRoot();
   const initialized = root ? isProjectInitialized(root) : false;
 
@@ -24,6 +24,21 @@ export function activate(context: vscode.ExtensionContext) {
   dataProvider = new DataProvider();
 
   if (initialized) {
+    // Auto-update rules to latest version (self-healing overwrite)
+    let savedEditor = getEditorType(root!);
+    if (!savedEditor) {
+      // One-time repair for projects initialized before editor-type tracking existed
+      savedEditor = await pickEditor();
+      if (savedEditor) {
+        await saveEditorType(root!, savedEditor);
+        log(`Editor type repaired: ${savedEditor}`);
+      }
+    }
+    if (savedEditor) {
+      setupRules(root!, savedEditor).then(result => {
+        if (result !== 'unchanged') { log(`Rules auto-updated: ${result}`); }
+      });
+    }
     dataProvider.initialize().then(() => log('DataProvider initialized'));
     moduleDict = new ModuleDict(dataProvider);
     moduleDict.initialize();
@@ -67,6 +82,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       // Write rules file
       await setupRules(root, editorType);
+      await saveEditorType(root, editorType);
 
       // Start data pipeline
       await dataProvider.initialize();
@@ -329,9 +345,9 @@ function getWorkspaceRoot(): string | undefined {
 
 async function pickEditor(): Promise<EditorType | undefined> {
   const items: vscode.QuickPickItem[] = [
-    { label: '$(symbol-class) Cursor', description: '.cursorrules', detail: 'Cursor editor (cursor.com)' },
+    { label: '$(symbol-class) Cursor', description: '.cursor/rules/vibetrace-core.mdc', detail: 'Cursor editor (cursor.com)' },
     { label: '$(symbol-constructor) Codex', description: 'AGENTS.md', detail: 'OpenAI Codex CLI / Codex Web' },
-    { label: '$(symbol-module) Trae', description: 'RULES.md', detail: 'Trae editor (字节跳动)' },
+    { label: '$(symbol-module) Trae', description: '.trae/rules/project_rules.md', detail: 'Trae editor (字节跳动)' },
   ];
 
   const picked = await vscode.window.showQuickPick(items, {

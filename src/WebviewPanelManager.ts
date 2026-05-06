@@ -125,6 +125,12 @@ export class WebviewPanelManager {
           case 'openFile':
             this.openFile(msg.path as string);
             break;
+          case 'updateEventModule':
+            this.dataProvider.updateModule(
+              msg.eventId as string,
+              msg.newModule as string
+            );
+            break;
         }
       },
       null,
@@ -139,9 +145,11 @@ export class WebviewPanelManager {
   }
 
   private sendEvents(): void {
+    const root = this.dataProvider.getWorkspaceRoot();
     this.panel?.webview.postMessage({
       command: 'eventsData',
       events: this.dataProvider.getAll(),
+      projectName: root ? path.basename(root) : 'Untitled',
     });
   }
 

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { VibeEvent } from './types';
+import type { EditorType } from './rules';
 
 const EVENTS_DIR = '.vibe';
 const EVENTS_GLOB = '**/.vibe/events/*.json';
@@ -15,6 +16,33 @@ export function isProjectInitialized(workspaceRoot: string): boolean {
 }
 
 /**
+ * Save the editor type chosen during initialization so we can auto-update rules later.
+ */
+export async function saveEditorType(workspaceRoot: string, editorType: EditorType): Promise<void> {
+  const configPath = path.join(workspaceRoot, EVENTS_DIR, 'config.json');
+  const config = { editorType };
+  await vscode.workspace.fs.writeFile(
+    vscode.Uri.file(configPath),
+    Buffer.from(JSON.stringify(config, null, 2), 'utf-8')
+  );
+}
+
+/**
+ * Read the saved editor type from .vibe/config.json.
+ * Returns undefined if the file doesn't exist or is malformed.
+ */
+export function getEditorType(workspaceRoot: string): EditorType | undefined {
+  const configPath = path.join(workspaceRoot, EVENTS_DIR, 'config.json');
+  try {
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(raw);
+    const t = config?.editorType;
+    if (t === 'cursor' || t === 'codex' || t === 'trae') { return t; }
+  } catch { /* ignore */ }
+  return undefined;
+}
+
+/**
  * Reads & watches the .vibe/events/ directory.
  * Maintains an in-memory cache of all parsed events.
  * Fires onDidChange when files are added / removed / changed.
@@ -22,6 +50,7 @@ export function isProjectInitialized(workspaceRoot: string): boolean {
 export class DataProvider {
   private events: Map<string, VibeEvent> = new Map();
   private watcher: vscode.FileSystemWatcher | null = null;
+  private _stamping = false;
 
   private _onDidChange = new vscode.EventEmitter<VibeEvent[]>();
   readonly onDidChange = this._onDidChange.event;
@@ -111,21 +140,35 @@ export class DataProvider {
   private async loadFile(uri: vscode.Uri): Promise<void> {
     try {
       const raw = await vscode.workspace.fs.readFile(uri);
-      const obj = JSON.parse(raw.toString()) as Record<string, unknown>;
+      // Strip UTF-8 BOM (some tools write EF BB BF at file start)
+      const decoded = raw.toString();
+      const text = decoded.startsWith('﻿') ? decoded.slice(1) : decoded;
+      const obj = JSON.parse(text) as Record<string, unknown>;
+
+      // Guard against empty / partially-written files
+      if (!obj.id) {
+        console.warn(`[VibeTrace] Skipping file with no id: ${uri.fsPath}`);
+        return;
+      }
 
       // If AI omitted the timestamp (new format), stamp it with the current time
       // and write it back to disk so the file is self-contained.
       if (!obj.timestamp) {
         obj.timestamp = new Date().toISOString();
         const content = Buffer.from(JSON.stringify(obj, null, 2), 'utf-8');
+        // Write back to disk (suppress watcher re-trigger via flag)
+        this._stamping = true;
         await vscode.workspace.fs.writeFile(uri, content);
+        this._stamping = false;
       }
 
       if (this.isValidEvent(obj)) {
         this.events.set(obj.id, obj);
+      } else {
+        console.warn(`[VibeTrace] Invalid event schema: ${obj.id ?? 'unknown'}`);
       }
-    } catch {
-      // skip malformed files silently
+    } catch (err) {
+      console.error(`[VibeTrace] Failed to load ${uri.fsPath}:`, err);
     }
   }
 
@@ -145,12 +188,14 @@ export class DataProvider {
 
     // New event file created by AI
     this.watcher.onDidCreate(async (uri) => {
+      if (this._stamping) { return; }
       await this.loadFile(uri);
       this._onDidChange.fire(this.getAll());
     });
 
     // Existing event file modified (e.g. user edit)
     this.watcher.onDidChange(async (uri) => {
+      if (this._stamping) { return; }
       await this.loadFile(uri);
       this._onDidChange.fire(this.getAll());
     });

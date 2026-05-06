@@ -21,6 +21,7 @@ const TABS: { id: TabId; label: string; icon: typeof Clock }[] = [
 
 export default function App() {
   const [events, setEvents] = useState<VibeEvent[]>([]);
+  const [projectName, setProjectName] = useState<string>('Untitled');
   const [activeTab, setActiveTab] = useState<TabId>('timeline');
   const [env, setEnv] = useState('detecting...');
 
@@ -30,6 +31,7 @@ export default function App() {
     onMessage((msg) => {
       if (msg.command === 'eventsData') {
         setEvents((msg.events as VibeEvent[]) ?? []);
+        setProjectName((msg.projectName as string) ?? 'Untitled');
       }
       if (msg.command === 'switchTab') {
         const tab = msg.tab as TabId | undefined;
@@ -45,7 +47,7 @@ export default function App() {
   const view = useCallback(() => {
     switch (activeTab) {
       case 'business-tree':
-        return <BusinessTreeView events={events} />;
+        return <BusinessTreeView events={events} projectName={projectName} />;
       case 'session-flow':
         return <SessionFlowView events={events} />;
       default:

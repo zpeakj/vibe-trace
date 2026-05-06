@@ -16,6 +16,7 @@ export interface VibeEvent {
   intent: string;
   summary: string;
   impactFiles: ImpactFile[];
+  original_prompt?: string;
   unresolved_issues?: string;
 }
 
@@ -66,6 +67,7 @@ export function getEvents(): void {
       const msg: ExtensionMessage = {
         command: 'eventsData',
         events: MOCK_EVENTS,
+        projectName: 'MyVibeProject',
       };
       handlers.forEach((fn) => fn(msg));
     }, 300);
@@ -80,6 +82,14 @@ export function openFile(filePath: string): void {
   }
 }
 
+export function updateEventModule(eventId: string, newModule: string): void {
+  if (isVsCode) {
+    vscode!.postMessage({ command: 'updateEventModule', eventId, newModule });
+  } else {
+    console.log(`[VibeTrace] updateEventModule: ${eventId} → ${newModule}`);
+  }
+}
+
 // ── Mock data (browser dev mode) ────────────────────────
 
 const MOCK_EVENTS: VibeEvent[] = [
@@ -88,6 +98,7 @@ const MOCK_EVENTS: VibeEvent[] = [
     timestamp: '2026-05-04T00:20:00+08:00',
     session_id: 'LoginPage-k7m',
     module: 'Auth',
+    original_prompt: 'I need to add WeChat QR code login to the existing login modal. Users should be able to scan a QR code with WeChat to log in instead of entering their password.',
     intent: 'Add WeChat QR code login to the login modal',
     summary:
       'Created WeChatQR component, added OAuth callback handling in user store, wired up backend verification route.',
@@ -116,6 +127,7 @@ const MOCK_EVENTS: VibeEvent[] = [
     timestamp: '2026-05-04T14:15:00+08:00',
     session_id: 'UserStateRefactor-p2x',
     module: 'Auth',
+    original_prompt: 'Now that WeChat login works, I want to also support Google and Apple login. Can you refactor the auth system to support multiple OAuth providers?',
     intent: 'Refactor user state management to support multiple OAuth providers',
     summary:
       'Extracted OAuth logic into a generic auth provider pattern. Moved WeChat-specific code into its own adapter.',
@@ -142,6 +154,7 @@ const MOCK_EVENTS: VibeEvent[] = [
     timestamp: '2026-05-04T18:30:00+08:00',
     session_id: 'DashboardPage-w3c',
     module: 'UI_Components',
+    original_prompt: 'Build me an analytics dashboard page with line charts showing user signups and revenue over time. Needs to look modern and match the existing UI.',
     intent: 'Create a new analytics dashboard page with charts',
     summary:
       'Built dashboard layout with chart components, added data fetching hook, created reusable stat card and chart primitives.',

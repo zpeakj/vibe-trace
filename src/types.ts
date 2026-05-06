@@ -29,6 +29,8 @@ export interface VibeEvent {
   summary: string;
   /** Files touched this turn, with action & description */
   impactFiles: ImpactFile[];
+  /** Optional: verbatim user prompt that triggered this turn */
+  original_prompt?: string;
   /** Optional: things left undone that need follow-up */
   unresolved_issues?: string;
 }

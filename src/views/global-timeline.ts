@@ -67,13 +67,14 @@ export class GlobalTimelineProvider implements vscode.TreeDataProvider<Entry> {
     );
     item.description = `${event.module} · ${timeStr}`;
     item.tooltip = [
+      event.original_prompt ? `**Original Prompt:** ${event.original_prompt}` : '',
       `**Intent:** ${event.intent}`,
       `**Summary:** ${event.summary}`,
       `**Module:** ${event.module}`,
       `**Session:** ${event.session_id}`,
       `**Time:** ${timeStr}`,
       event.unresolved_issues ? `\n⚠️ **Unresolved:** ${event.unresolved_issues}` : '',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
     item.iconPath = event.unresolved_issues
       ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'))
       : new vscode.ThemeIcon('circle-outline');

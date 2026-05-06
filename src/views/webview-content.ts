@@ -27,6 +27,18 @@ const STYLE = `
     margin: 12px 0;
     border-radius: 0 4px 4px 0;
   }
+  .original-prompt {
+    background: var(--vscode-textBlockQuote-background);
+    border-left: 3px solid var(--vscode-textBlockQuote-border);
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .original-prompt p {
+    font-style: italic;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
   .unresolved {
     background: var(--vscode-inputValidation-warningBackground);
     border: 1px solid var(--vscode-inputValidation-warningBorder);
@@ -90,6 +102,13 @@ export function eventDetailHtml(event: VibeEvent): string {
     </li>
   `).join('');
 
+  const originalPrompt = event.original_prompt ? `
+    <div class="original-prompt">
+      <strong>Original Prompt</strong>
+      <p>${escapeHtml(event.original_prompt)}</p>
+    </div>
+  ` : '';
+
   const unresolved = event.unresolved_issues ? `
     <div class="unresolved">
       <h3>Unresolved Issues</h3>
@@ -106,6 +125,8 @@ export function eventDetailHtml(event: VibeEvent): string {
       <dt>Session</dt><dd>${escapeHtml(event.session_id)}</dd>
       <dt>Module</dt><dd><strong>${escapeHtml(event.module)}</strong></dd>
     </dl>
+
+    ${originalPrompt}
 
     <div class="summary-box">
       <strong>AI Summary</strong>

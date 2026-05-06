@@ -2,7 +2,7 @@
 
 > Vibe-Coding 过程链记录与可视化工具 —— 不再丢失任何 Agent 窗口的对话上下文。
 
-[English](README.md)
+[开发日志](./vibeTrace-dev-log_CN.md) | [English](README.md)
 
 VibeTrace 是一款兼容 VS Code 生态的扩展插件，自动记录和可视化你的 AI 辅助编程旅程。每次 AI Agent 完成代码变更后，自动生成一份轻量级元数据记录。VibeTrace 收集这些记录，并以交互式时间线、业务功能图和会话链的形式在编辑器内直接呈现。
 

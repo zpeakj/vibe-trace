@@ -2,7 +2,7 @@
 
 > Vibe-coding process chain recorder & visualizer — never lose context across agent windows.
 
-[中文文档](README_CN.md)
+[Dev Log](./vibeTrace-dev-log.md) | [中文文档](README_CN.md)  
 
 VibeTrace is a VS Code-compatible extension that automatically records and visualizes your AI-assisted coding journey. Every time an AI agent finishes a code change, it generates a lightweight metadata record. VibeTrace collects these records and presents them as an interactive timeline, business feature graph, and session chain — right inside your editor.
 

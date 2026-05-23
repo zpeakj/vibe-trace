@@ -1,6 +1,52 @@
 # VibeTrace Dev Log
 
-## 20260506
+## 20260523 — v0.3.0
+
+### 1. Feature — i18n Multi-Language Support
+
+- Implemented three-layer i18n architecture covering extension, webview dashboard, and `package.json`.
+- Default language auto-follows the VS Code editor display language.
+- Added `vibetrace.language` configuration (Settings page) for manual override: Auto / English / 简体中文.
+- Added `VibeTrace: Switch Language` command to cycle through language options quickly.
+
+### 2. Feature — Webview Dashboard Theme Switching
+
+- Designed 12 semantic CSS design tokens (`--vt-bg`, `--vt-text`, `--vt-border`, etc.) shared across all dashboard views.
+- Dashboard theme auto-follows the VS Code editor theme by default.
+- Added `vibetrace.theme` configuration: Auto / Light / Dark.
+- Added `VibeTrace: Switch Theme` command to cycle through theme options.
+- Inline theme detection script in `index.html` prevents flash of unstyled content (FOUC).
+
+### 3. Feature — Settings Page
+
+- Added `vibetrace.language` and `vibetrace.theme` configuration properties under the VibeTrace settings section.
+- Accessible via `File > Preferences > Settings > Extensions > VibeTrace` or the gear icon on the extension sidebar.
+
+### 4. Feature — Export Vibe Data
+
+- Added `vibetrace.export` command accessible from the Global Timeline view title bar.
+- Packs the entire `.vibe/` folder into a `.zip` file.
+- User can choose the save location via native file dialog; defaults to the workspace root.
+
+### 5. Feature — Collapse / Expand All Buttons
+
+- Added collapse/expand toggle buttons (`$(collapse-all)` icon) to all three sidebar views: Global Timeline, Business Features, and Window Sessions.
+- Click once to collapse all groups, click again to expand all.
+
+### 6. Refactor — UI Improvements
+
+- **Business Features**: Compact metadata nodes, now display per-file `description` for each impacted file.
+- **Global Timeline & Window Sessions**: Cards now highlight the original prompt, AI-generated summary, and change summary. Impact file lists are collapsed by default (dropdown toggle). File entries show their `description` field. `unresolved_issues` content is now displayed inline in an amber-highlighted box instead of hidden behind a tooltip.
+- **Consistency**: Both Global Timeline and Window Sessions now show the same "⚠ Unresolved" label format for unresolved issues.
+
+### 7. Fix — Activity Bar Icon
+
+- Replaced PNG-in-SVG workaround with a real vector SVG using `fill="currentColor"` for proper theme color adaptation.
+- Cropped and scaled the viewBox so the icon renders at the correct size matching other activity bar icons.
+
+---
+
+## 20260506 — v0.2.0
 
 ### 1. Fix
 

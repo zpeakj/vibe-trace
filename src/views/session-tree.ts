@@ -3,6 +3,7 @@ import * as path from 'path';
 import { VibeEvent, ImpactFile, ViewStatus } from '../types';
 import { DataProvider, isProjectInitialized } from '../data-provider';
 import { formatTimestamp, truncate } from '../utils';
+import { t } from '../i18n';
 
 /**
  * Tab C — Window Sessions.
@@ -11,6 +12,8 @@ import { formatTimestamp, truncate } from '../utils';
 export class SessionTreeProvider implements vscode.TreeDataProvider<SEntry> {
   private _onDidChangeTreeData = new vscode.EventEmitter<SEntry | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+  private _allCollapsed = true;
+  private _version = 0;
 
   constructor(private dataProvider: DataProvider) {
     dataProvider.onDidChange(() => this.refresh());
@@ -18,6 +21,16 @@ export class SessionTreeProvider implements vscode.TreeDataProvider<SEntry> {
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
+  }
+
+  toggleCollapse(): void {
+    this._allCollapsed = !this._allCollapsed;
+    this._version++;
+    this.refresh();
+  }
+
+  get allCollapsed(): boolean {
+    return this._allCollapsed;
   }
 
   getTreeItem(element: SEntry): vscode.TreeItem {
@@ -76,20 +89,23 @@ export class SessionTreeProvider implements vscode.TreeDataProvider<SEntry> {
       ? `${formatTimestamp(firstTime).split(',')[0] || formatTimestamp(firstTime).split(' ')[0]} → ${formatTimestamp(lastTime).split(',')[0] || formatTimestamp(lastTime).split(' ')[0]}`
       : '';
 
+    const collapsible = this._allCollapsed
+      ? vscode.TreeItemCollapsibleState.Collapsed
+      : vscode.TreeItemCollapsibleState.Expanded;
     const item = new vscode.TreeItem(
       entry.sessionId,
-      vscode.TreeItemCollapsibleState.Expanded
+      collapsible
     );
-    item.description = `${events.length} turn${events.length > 1 ? 's' : ''} · ${moduleList}`;
+    item.description = `${t('common.turns', { count: events.length })} · ${moduleList}`;
     item.tooltip = [
-      `**Session:** ${entry.sessionId}`,
-      `**Turns:** ${events.length}`,
-      `**Modules touched:** ${moduleList}`,
-      timeRange ? `**Time span:** ${timeRange}` : '',
+      `${t('tooltip.session')} ${entry.sessionId}`,
+      `${t('tooltip.turns')} ${events.length}`,
+      `${t('tooltip.modulesTouched')} ${moduleList}`,
+      timeRange ? `${t('tooltip.timeSpan')} ${timeRange}` : '',
     ].filter(Boolean).join('\n');
     item.iconPath = new vscode.ThemeIcon('comment-discussion');
     item.contextValue = 'sessionGroup';
-    item.id = `session-${entry.sessionId}`;
+    item.id = `session-${entry.sessionId}@${this._version}`;
     return item;
   }
 
@@ -102,11 +118,11 @@ export class SessionTreeProvider implements vscode.TreeDataProvider<SEntry> {
     );
     item.description = `${event.module} · ${timeStr}`;
     item.tooltip = [
-      `**Intent:** ${event.intent}`,
-      `**Summary:** ${event.summary}`,
-      `**Module:** ${event.module}`,
-      `**Time:** ${timeStr}`,
-      event.unresolved_issues ? `\n⚠️ **Unresolved:** ${event.unresolved_issues}` : '',
+      `${t('tooltip.intent')} ${event.intent}`,
+      `${t('tooltip.summary')} ${event.summary}`,
+      `${t('tooltip.module')} ${event.module}`,
+      `${t('tooltip.time')} ${timeStr}`,
+      event.unresolved_issues ? `${t('tooltip.unresolved')} ${event.unresolved_issues}` : '',
     ].join('\n');
     item.iconPath = event.unresolved_issues
       ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'))
@@ -122,12 +138,12 @@ export class SessionTreeProvider implements vscode.TreeDataProvider<SEntry> {
       vscode.TreeItemCollapsibleState.None
     );
     item.description = `${file.action} — ${file.description}`;
-    item.tooltip = `**File:** ${file.path}\n**Action:** ${file.action}\n**Description:** ${file.description}`;
+    item.tooltip = `${t('tooltip.file')} ${file.path}\n${t('tooltip.action')} ${file.action}\n${t('tooltip.description')} ${file.description}`;
     item.iconPath = this.fileActionIcon(file.action);
     item.contextValue = 'impactFile';
     item.command = {
       command: 'vibetrace.openFile',
-      title: 'Open File',
+      title: t('common.openFile'),
       arguments: [file.path],
     };
     return item;
@@ -180,13 +196,13 @@ class SessionStatusEntry implements STreeEntry {
   constructor(status: ViewStatus) {
     if (status === 'empty') {
       this.treeItem = new vscode.TreeItem(
-        'No sessions recorded yet',
+        t('sessions.empty.title'),
         vscode.TreeItemCollapsibleState.None
       );
-      this.treeItem.description = 'Start a conversation in any agent window to begin';
+      this.treeItem.description = t('sessions.empty.desc');
       this.treeItem.iconPath = new vscode.ThemeIcon('info');
     } else {
-      this.treeItem = new vscode.TreeItem('Ready');
+      this.treeItem = new vscode.TreeItem(t('common.ready'));
     }
   }
 }

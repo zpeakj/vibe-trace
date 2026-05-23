@@ -3,6 +3,7 @@ import * as path from 'path';
 import { VibeEvent, ImpactFile, ViewStatus } from '../types';
 import { DataProvider, isProjectInitialized } from '../data-provider';
 import { formatTimestamp, truncate } from '../utils';
+import { t } from '../i18n';
 
 /**
  * Tab B — Business Features.
@@ -11,6 +12,8 @@ import { formatTimestamp, truncate } from '../utils';
 export class FeatureTreeProvider implements vscode.TreeDataProvider<FEntry> {
   private _onDidChangeTreeData = new vscode.EventEmitter<FEntry | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+  private _allCollapsed = true;
+  private _version = 0;
 
   constructor(private dataProvider: DataProvider) {
     dataProvider.onDidChange(() => this.refresh());
@@ -18,6 +21,16 @@ export class FeatureTreeProvider implements vscode.TreeDataProvider<FEntry> {
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
+  }
+
+  toggleCollapse(): void {
+    this._allCollapsed = !this._allCollapsed;
+    this._version++;
+    this.refresh();
+  }
+
+  get allCollapsed(): boolean {
+    return this._allCollapsed;
   }
 
   getTreeItem(element: FEntry): vscode.TreeItem {
@@ -65,14 +78,17 @@ export class FeatureTreeProvider implements vscode.TreeDataProvider<FEntry> {
   }
 
   private moduleTreeItem(entry: ModuleEntry): vscode.TreeItem {
+    const collapsible = this._allCollapsed
+      ? vscode.TreeItemCollapsibleState.Collapsed
+      : vscode.TreeItemCollapsibleState.Expanded;
     const item = new vscode.TreeItem(
       entry.moduleName,
-      vscode.TreeItemCollapsibleState.Expanded
+      collapsible
     );
-    item.description = `${entry.eventCount} event${entry.eventCount > 1 ? 's' : ''}`;
+    item.description = t('common.events', { count: entry.eventCount });
     item.iconPath = new vscode.ThemeIcon('package');
     item.contextValue = 'moduleGroup';
-    item.id = `module-${entry.moduleName}`;
+    item.id = `module-${entry.moduleName}@${this._version}`;
     return item;
   }
 
@@ -85,11 +101,11 @@ export class FeatureTreeProvider implements vscode.TreeDataProvider<FEntry> {
     );
     item.description = `${event.session_id} · ${timeStr}`;
     item.tooltip = [
-      `**Intent:** ${event.intent}`,
-      `**Summary:** ${event.summary}`,
-      `**Session:** ${event.session_id}`,
-      `**Time:** ${timeStr}`,
-      event.unresolved_issues ? `\n⚠️ **Unresolved:** ${event.unresolved_issues}` : '',
+      `${t('tooltip.intent')} ${event.intent}`,
+      `${t('tooltip.summary')} ${event.summary}`,
+      `${t('tooltip.session')} ${event.session_id}`,
+      `${t('tooltip.time')} ${timeStr}`,
+      event.unresolved_issues ? `${t('tooltip.unresolved')} ${event.unresolved_issues}` : '',
     ].join('\n');
     item.iconPath = event.unresolved_issues
       ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'))
@@ -105,12 +121,12 @@ export class FeatureTreeProvider implements vscode.TreeDataProvider<FEntry> {
       vscode.TreeItemCollapsibleState.None
     );
     item.description = `${file.action} — ${file.description}`;
-    item.tooltip = `**File:** ${file.path}\n**Action:** ${file.action}\n**Description:** ${file.description}`;
+    item.tooltip = `${t('tooltip.file')} ${file.path}\n${t('tooltip.action')} ${file.action}\n${t('tooltip.description')} ${file.description}`;
     item.iconPath = this.fileActionIcon(file.action);
     item.contextValue = 'impactFile';
     item.command = {
       command: 'vibetrace.openFile',
-      title: 'Open File',
+      title: t('common.openFile'),
       arguments: [file.path],
     };
     return item;
@@ -163,13 +179,13 @@ class FeatureStatusEntry implements FTreeEntry {
   constructor(status: ViewStatus) {
     if (status === 'empty') {
       this.treeItem = new vscode.TreeItem(
-        'No business features recorded yet',
+        t('features.empty.title'),
         vscode.TreeItemCollapsibleState.None
       );
-      this.treeItem.description = 'AI will auto-classify conversations into features';
+      this.treeItem.description = t('features.empty.desc');
       this.treeItem.iconPath = new vscode.ThemeIcon('info');
     } else {
-      this.treeItem = new vscode.TreeItem('Ready');
+      this.treeItem = new vscode.TreeItem(t('common.ready'));
     }
   }
 }

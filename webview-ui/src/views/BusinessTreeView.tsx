@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 import {
   ReactFlow,
   Node,
@@ -19,7 +19,9 @@ import {
 import '@xyflow/react/dist/style.css';
 import { VibeEvent, openFile, updateEventModule } from '../api';
 import { filterBusinessFiles } from '../utils/filter';
+import { actionBadge, actionDot } from '../utils/theme';
 import { cn } from '../utils/cn';
+import { t } from '../i18n';
 import dagre from '@dagrejs/dagre';
 import {
   Package,
@@ -47,13 +49,18 @@ function layoutTree(nodes: Node[], edges: Edge[]) {
   g.setDefaultEdgeLabel(() => ({}));
   g.setGraph({
     rankdir: 'TB',
-    nodesep: 80,
+    nodesep: 60,
     ranksep: 120,
     marginx: 40,
     marginy: 40,
   });
 
+  const structuralIds = new Set(
+    nodes.filter((n) => n.type !== 'intentNode').map((n) => n.id)
+  );
+
   for (const node of nodes) {
+    if (!structuralIds.has(node.id)) continue;
     let w = NODE_WIDTH;
     let h = NODE_HEIGHT;
     if (node.type === 'rootNode') {
@@ -67,18 +74,23 @@ function layoutTree(nodes: Node[], edges: Edge[]) {
   }
 
   for (const edge of edges) {
-    g.setEdge(edge.source, edge.target);
+    if (structuralIds.has(edge.source) && structuralIds.has(edge.target)) {
+      g.setEdge(edge.source, edge.target);
+    }
   }
 
   dagre.layout(g);
 
   return nodes.map((node) => {
     const pos = g.node(node.id);
+    if (!pos) {
+      return node;
+    }
     return {
       ...node,
       position: {
-        x: pos.x - (node.type === 'rootNode' ? ROOT_WIDTH : node.type === 'moduleNode' ? MODULE_WIDTH : NODE_WIDTH) / 2,
-        y: pos.y - (node.type === 'rootNode' ? ROOT_HEIGHT : node.type === 'moduleNode' ? MODULE_HEIGHT : NODE_HEIGHT) / 2,
+        x: pos.x - (node.type === 'rootNode' ? ROOT_WIDTH : MODULE_WIDTH) / 2,
+        y: pos.y - (node.type === 'rootNode' ? ROOT_HEIGHT : MODULE_HEIGHT) / 2,
       },
     };
   });
@@ -86,7 +98,7 @@ function layoutTree(nodes: Node[], edges: Edge[]) {
 
 // ── Custom nodes with Handle anchors ────────────────────
 
-function RootNode({ data }: NodeProps) {
+const RootNode = memo(function RootNode({ data }: NodeProps) {
   const hasChildren = data.hasChildren as boolean;
   const isCollapsed = data.isCollapsed as boolean;
   const onToggleCollapse = data.onToggleCollapse as (() => void) | undefined;
@@ -97,8 +109,8 @@ function RootNode({ data }: NodeProps) {
       {hasChildren && (
         <button
           onClick={(e) => { e.stopPropagation(); onToggleCollapse?.(); }}
-          className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 flex items-center justify-center transition-colors"
-          title={isCollapsed ? 'Expand modules' : 'Collapse modules'}
+          className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-vt-surface-alt border border-vt-border-alt hover:bg-vt-border-alt flex items-center justify-center transition-colors"
+          title={isCollapsed ? t('features.expandModules') : t('features.collapseModules')}
         >
           {isCollapsed ? (
             <ChevronRight className="w-3.5 h-3.5 text-emerald-400" />
@@ -115,9 +127,9 @@ function RootNode({ data }: NodeProps) {
       </p>
     </div>
   );
-}
+});
 
-function ModuleNode({ data }: NodeProps) {
+const ModuleNode = memo(function ModuleNode({ data }: NodeProps) {
   const hasChildren = data.hasChildren as boolean;
   const isCollapsed = data.isCollapsed as boolean;
   const onToggleCollapse = data.onToggleCollapse as (() => void) | undefined;
@@ -128,8 +140,8 @@ function ModuleNode({ data }: NodeProps) {
       {hasChildren && (
         <button
           onClick={(e) => { e.stopPropagation(); onToggleCollapse?.(); }}
-          className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 flex items-center justify-center transition-colors"
-          title={isCollapsed ? 'Expand events' : 'Collapse events'}
+          className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-vt-surface-alt border border-vt-border-alt hover:bg-vt-border-alt flex items-center justify-center transition-colors"
+          title={isCollapsed ? t('features.expandEvents') : t('features.collapseEvents')}
         >
           {isCollapsed ? (
             <ChevronRight className="w-3.5 h-3.5 text-blue-400" />
@@ -150,9 +162,9 @@ function ModuleNode({ data }: NodeProps) {
       <Handle type="source" position={Position.Bottom} className="!bg-blue-500 !w-3 !h-3 !border-2 !border-blue-800" />
     </div>
   );
-}
+});
 
-function CompactIntentNode({ data }: NodeProps) {
+const CompactIntentNode = memo(function CompactIntentNode({ data }: NodeProps) {
   const event = data.event as VibeEvent;
   const fileCount = event.impactFiles.length;
   const seq = data.seq as number | undefined;
@@ -161,24 +173,24 @@ function CompactIntentNode({ data }: NodeProps) {
   return (
     <div
       className={cn(
-        'rounded-lg border border-zinc-700/50 bg-zinc-900/90 px-3 py-2.5 shadow-lg backdrop-blur-sm',
+        'rounded-lg border border-vt-border-alt/50 bg-vt-bg-alt/90 px-3 py-2.5 shadow-lg backdrop-blur-sm',
         'w-[230px] cursor-pointer transition-all duration-200',
         'hover:border-emerald-500/50 hover:scale-105 hover:shadow-emerald-500/5'
       )}
     >
-      <Handle type="target" position={Position.Top} className="!bg-zinc-500 !w-3 !h-3 !border-2 !border-zinc-800" />
+      <Handle type="target" position={Position.Top} className="!bg-vt-text-muted !w-3 !h-3 !border-2 !border-vt-border-alt" />
       <div className="flex items-center gap-1.5">
         {seq !== undefined && (
           <span className="text-[11px] font-bold text-cyan-400 shrink-0">#{seq}</span>
         )}
-        <FileCode className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-        <span className="font-semibold text-xs text-zinc-100 truncate leading-tight">
+        <FileCode className="w-3.5 h-3.5 text-vt-text-muted shrink-0" />
+        <span className="font-semibold text-xs text-vt-text truncate leading-tight">
           {baseLabel}
         </span>
       </div>
       <div className="flex items-center gap-1.5 mt-1.5">
-        <span className="text-[10px] text-zinc-500 bg-zinc-800/70 px-1.5 py-0.5 rounded">
-          {fileCount} file{fileCount !== 1 ? 's' : ''} changed
+        <span className="text-[10px] text-vt-text-muted bg-vt-surface/70 px-1.5 py-0.5 rounded">
+          {t('features.filesChanged', { count: fileCount })}
         </span>
         {event.unresolved_issues && (
           <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
@@ -186,7 +198,7 @@ function CompactIntentNode({ data }: NodeProps) {
       </div>
     </div>
   );
-}
+});
 
 const nodeTypes = {
   rootNode: RootNode,
@@ -205,7 +217,7 @@ function eventsToTree(events: VibeEvent[], projectName: string): { nodes: Node[]
       id: 'root',
       type: 'rootNode',
       position: { x: 0, y: 0 },
-      data: { label: projectName, subtitle: 'No events recorded yet' },
+      data: { label: projectName, subtitle: t('features.empty.subtitle') },
     });
     return { nodes: rawNodes, edges };
   }
@@ -216,7 +228,7 @@ function eventsToTree(events: VibeEvent[], projectName: string): { nodes: Node[]
     position: { x: 0, y: 0 },
     data: {
       label: projectName,
-      subtitle: `${events.length} event${events.length > 1 ? 's' : ''} across multiple modules`,
+      subtitle: t('features.subtitle', { count: events.length }),
     },
   });
 
@@ -239,7 +251,7 @@ function eventsToTree(events: VibeEvent[], projectName: string): { nodes: Node[]
       position: { x: 0, y: 0 },
       data: {
         label: mod,
-        subtitle: `${modEvents.length} event${modEvents.length > 1 ? 's' : ''}`,
+        subtitle: t('features.moduleSubtitle', { count: modEvents.length }),
       },
     });
 
@@ -275,7 +287,6 @@ function eventsToTree(events: VibeEvent[], projectName: string): { nodes: Node[]
     });
   });
 
-  // Mark parent nodes (nodes with outgoing edges)
   const parentIds = new Set(edges.map((e) => e.source));
   for (const node of rawNodes) {
     if (parentIds.has(node.id)) {
@@ -283,11 +294,8 @@ function eventsToTree(events: VibeEvent[], projectName: string): { nodes: Node[]
     }
   }
 
-  // Run dagre auto-layout (positions Root + ModuleNodes)
   const nodes = layoutTree(rawNodes, edges);
 
-  // Post-process: stack IntentNodes vertically under their parent ModuleNode
-  // (purely visual — edge structure is unchanged)
   const moduleIntentMap = new Map<string, string[]>();
   for (const edge of edges) {
     if (edge.source.startsWith('module-')) {
@@ -342,16 +350,6 @@ function formatTime(iso: string): string {
   }
 }
 
-function actionBadge(action: string) {
-  const map: Record<string, string> = {
-    create: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-    modify: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    delete: 'bg-red-500/20 text-red-400 border-red-500/30',
-    read: 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30',
-  };
-  return map[action] ?? map.read;
-}
-
 interface DrawerProps {
   event: VibeEvent;
   onClose: () => void;
@@ -361,14 +359,14 @@ function EventDrawer({ event, onClose }: DrawerProps) {
   const files = filterBusinessFiles(event.impactFiles);
 
   return (
-    <div className="absolute top-0 right-0 bottom-0 w-[420px] bg-zinc-950 border-l border-zinc-800 shadow-2xl z-50 flex flex-col animate-slide-in">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800 shrink-0">
-        <h3 className="font-bold text-sm text-zinc-100 truncate pr-2">
-          Event Detail
+    <div className="absolute top-0 right-0 bottom-0 w-[420px] bg-vt-bg border-l border-vt-border shadow-2xl z-50 flex flex-col animate-slide-in">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-vt-border shrink-0">
+        <h3 className="font-bold text-sm text-vt-text truncate pr-2">
+          {t('features.drawer.title')}
         </h3>
         <button
           onClick={onClose}
-          className="p-1 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors"
+          className="p-1 rounded hover:bg-vt-surface text-vt-text-muted hover:text-vt-text-alt transition-colors"
         >
           <X className="w-4 h-4" />
         </button>
@@ -376,7 +374,7 @@ function EventDrawer({ event, onClose }: DrawerProps) {
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
         <div>
-          <h2 className="font-bold text-base text-zinc-100 leading-snug">
+          <h2 className="font-bold text-base text-vt-text leading-snug">
             {event.intent}
           </h2>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -384,7 +382,7 @@ function EventDrawer({ event, onClose }: DrawerProps) {
               <FolderGit2 className="w-3 h-3" />
               {event.module}
             </span>
-            <span className="flex items-center gap-1 text-[11px] text-zinc-500">
+            <span className="flex items-center gap-1 text-[11px] text-vt-text-muted">
               <Clock className="w-3 h-3" />
               {formatTime(event.timestamp)}
             </span>
@@ -393,56 +391,60 @@ function EventDrawer({ event, onClose }: DrawerProps) {
 
         {event.original_prompt && (
           <div>
-            <h4 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">
-              Original Prompt
+            <h4 className="text-[11px] font-semibold text-vt-text-muted uppercase tracking-wider mb-1.5">
+              {t('features.drawer.originalPrompt')}
             </h4>
-            <p className="text-sm text-zinc-400/80 italic leading-relaxed">
+            <p className="text-sm text-vt-text-alt/80 italic leading-relaxed">
               &ldquo;{event.original_prompt}&rdquo;
             </p>
           </div>
         )}
         <div>
-          <h4 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">
-            Summary
+          <h4 className="text-[11px] font-semibold text-vt-text-muted uppercase tracking-wider mb-1.5">
+            {t('features.drawer.summary')}
           </h4>
-          <p className="text-sm text-zinc-400 leading-relaxed">
+          <p className="text-sm text-vt-text-alt leading-relaxed">
             {event.summary}
           </p>
         </div>
 
         {files.length > 0 && (
           <div>
-            <h4 className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">
-              Impact Files ({files.length})
+            <h4 className="text-[11px] font-semibold text-vt-text-muted uppercase tracking-wider mb-2">
+              {t('features.drawer.impactFiles', { count: files.length })}
             </h4>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {files.map((f) => (
                 <button
                   key={f.path}
                   onClick={() => openFile(f.path)}
-                  className="flex items-center gap-2 w-full text-left px-3 py-2 rounded-md hover:bg-zinc-800/60 transition-colors group"
+                  className="w-full text-left px-3 py-2 rounded-md hover:bg-vt-surface/60 transition-colors group"
                 >
-                  <span
-                    className={cn(
-                      'w-2 h-2 rounded-full shrink-0',
-                      f.action === 'create' && 'bg-emerald-500',
-                      f.action === 'modify' && 'bg-yellow-500',
-                      f.action === 'delete' && 'bg-red-500',
-                      f.action === 'read' && 'bg-zinc-500'
-                    )}
-                  />
-                  <FileCode className="w-3.5 h-3.5 text-zinc-600 group-hover:text-zinc-400 shrink-0" />
-                  <code className="text-xs text-zinc-400 group-hover:text-zinc-200 font-mono truncate">
-                    {f.path}
-                  </code>
-                  <span
-                    className={cn(
-                      'text-[10px] px-1.5 py-0.5 rounded border font-mono ml-auto shrink-0',
-                      actionBadge(f.action)
-                    )}
-                  >
-                    {f.action}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        'w-2 h-2 rounded-full shrink-0',
+                        actionDot(f.action)
+                      )}
+                    />
+                    <FileCode className="w-3.5 h-3.5 text-vt-text-subtle group-hover:text-vt-text-alt shrink-0" />
+                    <code className="text-xs text-vt-text-alt group-hover:text-vt-text font-mono truncate">
+                      {f.path}
+                    </code>
+                    <span
+                      className={cn(
+                        'text-[10px] px-1.5 py-0.5 rounded border font-mono ml-auto shrink-0',
+                        actionBadge(f.action)
+                      )}
+                    >
+                      {f.action}
+                    </span>
+                  </div>
+                  {f.description && (
+                    <p className="text-[11px] text-vt-text-muted mt-1 ml-7 leading-relaxed">
+                      {f.description}
+                    </p>
+                  )}
                 </button>
               ))}
             </div>
@@ -454,7 +456,7 @@ function EventDrawer({ event, onClose }: DrawerProps) {
             <div className="flex items-center gap-2 mb-1">
               <AlertTriangle className="w-4 h-4 text-amber-500" />
               <span className="text-xs font-semibold text-amber-400">
-                Unresolved Issues
+                {t('features.drawer.unresolved')}
               </span>
             </div>
             <p className="text-xs text-amber-500/80 leading-relaxed">
@@ -489,9 +491,7 @@ export function BusinessTreeView({ events, projectName }: Props) {
     });
   }, []);
 
-  // Compute visible nodes/edges based on collapse state
   const { visibleNodes, visibleEdges } = useMemo(() => {
-    // Build childMap from edges: source → [target, ...]
     const childMap = new Map<string, string[]>();
     for (const e of tree.edges) {
       const list = childMap.get(e.source) ?? [];
@@ -499,7 +499,6 @@ export function BusinessTreeView({ events, projectName }: Props) {
       childMap.set(e.source, list);
     }
 
-    // Recursively collect hidden node IDs starting from collapsed parents
     const hidden = new Set<string>();
     function collectHidden(id: string) {
       const children = childMap.get(id);
@@ -513,7 +512,6 @@ export function BusinessTreeView({ events, projectName }: Props) {
       collectHidden(id);
     }
 
-    // Augment node data with collapse info, filter out hidden
     const visibleNodes = tree.nodes
       .filter((n) => !hidden.has(n.id))
       .map((n) => ({
@@ -565,8 +563,6 @@ export function BusinessTreeView({ events, projectName }: Props) {
   }, []);
 
   const onConnect = useCallback((params: Connection) => {
-    // User drags from IntentNode to a (different) ModuleNode
-    // params.source / params.target can be either node depending on drag direction
     const sourceIsModule = params.source.startsWith('module-');
     const eventId = sourceIsModule ? params.target : params.source;
     const moduleId = sourceIsModule ? params.source : params.target;
@@ -576,20 +572,18 @@ export function BusinessTreeView({ events, projectName }: Props) {
 
   if (events.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-zinc-500">
+      <div className="flex items-center justify-center h-full text-vt-text-muted">
         <div className="text-center">
-          <Package className="w-12 h-12 mx-auto mb-3 text-zinc-700" />
-          <p className="text-lg font-medium">No business features yet</p>
-          <p className="text-sm mt-1">
-            AI will auto-classify conversations into feature modules.
-          </p>
+          <Package className="w-12 h-12 mx-auto mb-3 text-vt-empty-icon" />
+          <p className="text-lg font-medium">{t('features.empty.title')}</p>
+          <p className="text-sm mt-1">{t('features.empty.desc')}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full bg-zinc-950 relative">
+    <div className="w-full h-full bg-vt-bg relative">
       <ReactFlow
         key={dataKey}
         defaultNodes={visibleNodes}
@@ -600,12 +594,15 @@ export function BusinessTreeView({ events, projectName }: Props) {
         onPaneClick={onPaneClick}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
+        nodesDraggable={false}
+        elementsSelectable={false}
+        nodesFocusable={false}
         defaultEdgeOptions={{
           type: 'smoothstep',
-          style: { stroke: '#94a3b8', strokeWidth: 2.5 },
+          style: { stroke: 'var(--vt-text-muted)', strokeWidth: 2.5 },
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            color: '#94a3b8',
+            color: 'var(--vt-text-muted)',
             width: 20,
             height: 20,
           },
@@ -616,19 +613,19 @@ export function BusinessTreeView({ events, projectName }: Props) {
         maxZoom={1.5}
         proOptions={{ hideAttribution: true }}
       >
-        <Background color="#27272a" gap={24} size={0.5} />
+        <Background color="var(--vt-border)" gap={24} size={0.5} />
         <Controls position="bottom-right">
           <button
             onClick={() => setRefreshCounter((c) => c + 1)}
             className="react-flow__controls-button"
-            title="Refresh view"
+            title={t('features.refresh')}
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
         </Controls>
         <MiniMap
-          style={{ backgroundColor: '#18181b' }}
-          maskColor="rgba(24,24,27,0.7)"
+          style={{ backgroundColor: 'var(--vt-bg-alt)' }}
+          maskColor="var(--vt-bg)"
           nodeColor={(n) => {
             const t = n.type;
             if (t === 'rootNode') return '#10b981';

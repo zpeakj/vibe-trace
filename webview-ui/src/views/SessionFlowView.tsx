@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
 import { VibeEvent, openFile } from '../api';
 import { filterBusinessFiles } from '../utils/filter';
+import { actionBadge } from '../utils/theme';
+import { t } from '../i18n';
 import {
   MessageSquare,
   Clock,
   FolderGit2,
   ChevronRight,
-  FileCode,
+  ChevronDown,
   AlertTriangle,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
@@ -31,17 +33,9 @@ function formatTime(iso: string): string {
   }
 }
 
-function actionDot(action: string) {
-  switch (action) {
-    case 'create': return 'bg-emerald-500';
-    case 'modify': return 'bg-yellow-500';
-    case 'delete': return 'bg-red-500';
-    default: return 'bg-zinc-500';
-  }
-}
-
 export function SessionFlowView({ events }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
 
   const sessions = useMemo(() => {
     const map = new Map<string, VibeEvent[]>();
@@ -50,7 +44,6 @@ export function SessionFlowView({ events }: Props) {
       list.push(ev);
       map.set(ev.session_id, list);
     }
-    // Sort each session's events newest first
     const result: { id: string; events: VibeEvent[]; modules: string[] }[] = [];
     for (const [id, evts] of map) {
       evts.sort(
@@ -59,7 +52,6 @@ export function SessionFlowView({ events }: Props) {
       const modSet = new Set(evts.map((e) => e.module));
       result.push({ id, events: evts, modules: Array.from(modSet).sort() });
     }
-    // Sessions with most recent activity first
     result.sort(
       (a, b) =>
         new Date(b.events[0].timestamp).getTime() -
@@ -68,18 +60,17 @@ export function SessionFlowView({ events }: Props) {
     return result;
   }, [events]);
 
-  // Auto-select first session
   const active = selected
     ? sessions.find((s) => s.id === selected)
     : sessions[0];
 
   if (sessions.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-zinc-500">
+      <div className="flex items-center justify-center h-full text-vt-text-muted">
         <div className="text-center">
-          <MessageSquare className="w-12 h-12 mx-auto mb-3 text-zinc-700" />
-          <p className="text-lg font-medium">No sessions yet</p>
-          <p className="text-sm mt-1">Open an agent window and start a conversation.</p>
+          <MessageSquare className="w-12 h-12 mx-auto mb-3 text-vt-empty-icon" />
+          <p className="text-lg font-medium">{t('sessions.empty.title')}</p>
+          <p className="text-sm mt-1">{t('sessions.empty.desc')}</p>
         </div>
       </div>
     );
@@ -88,18 +79,18 @@ export function SessionFlowView({ events }: Props) {
   return (
     <div className="flex h-full">
       {/* Left: session list */}
-      <aside className="w-72 shrink-0 border-r border-zinc-800 overflow-y-auto bg-zinc-950/50">
-        <div className="px-3 py-3 border-b border-zinc-800 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-          Sessions ({sessions.length})
+      <aside className="w-72 shrink-0 border-r border-vt-border overflow-y-auto bg-vt-bg-alt/50">
+        <div className="px-3 py-3 border-b border-vt-border text-xs font-semibold text-vt-text-muted uppercase tracking-wider">
+          {t('sessions.sidebarTitle', { count: sessions.length })}
         </div>
         {sessions.map((s) => (
           <button
             key={s.id}
             onClick={() => setSelected(s.id)}
             className={cn(
-              'w-full text-left px-3 py-3 border-b border-zinc-800/50 transition-colors hover:bg-zinc-900/50',
+              'w-full text-left px-3 py-3 border-b border-vt-border/50 transition-colors hover:bg-vt-surface/50',
               active?.id === s.id
-                ? 'bg-zinc-900 border-l-2 border-l-emerald-500 pl-[10px]'
+                ? 'bg-vt-bg-alt border-l-2 border-l-emerald-500 pl-[10px]'
                 : 'border-l-2 border-l-transparent pl-[10px]'
             )}
           >
@@ -107,24 +98,24 @@ export function SessionFlowView({ events }: Props) {
               <ChevronRight
                 className={cn(
                   'w-3 h-3 shrink-0 transition-transform',
-                  active?.id === s.id ? 'text-emerald-400 rotate-90' : 'text-zinc-600'
+                  active?.id === s.id ? 'text-emerald-400 rotate-90' : 'text-vt-text-subtle'
                 )}
               />
               <span
                 className={cn(
                   'text-sm font-medium truncate',
-                  active?.id === s.id ? 'text-emerald-300' : 'text-zinc-300'
+                  active?.id === s.id ? 'text-emerald-300' : 'text-vt-text-alt'
                 )}
               >
                 {s.id}
               </span>
             </div>
             <div className="flex items-center gap-2 mt-1.5 ml-5">
-              <span className="text-[11px] text-zinc-500">
-                {s.events.length} turn{s.events.length > 1 ? 's' : ''}
+              <span className="text-[11px] text-vt-text-muted">
+                {t('sessions.turnCount', { count: s.events.length })}
               </span>
-              <span className="text-[11px] text-zinc-700">·</span>
-              <span className="text-[11px] text-zinc-600 truncate">
+              <span className="text-[11px] text-vt-text-subtle">&middot;</span>
+              <span className="text-[11px] text-vt-text-subtle truncate">
                 {s.modules.join(', ')}
               </span>
             </div>
@@ -139,9 +130,9 @@ export function SessionFlowView({ events }: Props) {
             <div className="flex items-center gap-3 mb-6">
               <MessageSquare className="w-5 h-5 text-emerald-400" />
               <div>
-                <h2 className="text-lg font-bold text-zinc-100">{active.id}</h2>
-                <p className="text-sm text-zinc-500">
-                  {active.events.length} turn{active.events.length > 1 ? 's' : ''}
+                <h2 className="text-lg font-bold text-vt-text">{active.id}</h2>
+                <p className="text-sm text-vt-text-muted">
+                  {t('sessions.turnCount', { count: active.events.length })}
                   {' · '}
                   {active.modules.join(', ')}
                 </p>
@@ -153,15 +144,15 @@ export function SessionFlowView({ events }: Props) {
               {active.events.map((ev, i) => (
                 <div
                   key={ev.id}
-                  className="rounded-lg border border-zinc-800 bg-zinc-900/80"
+                  className="rounded-lg border border-vt-border bg-vt-bg-alt/80"
                 >
                   {/* Turn header */}
-                  <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800/60">
+                  <div className="flex items-center justify-between px-4 py-2 border-b border-vt-border/60">
                     <div className="flex items-center gap-3">
-                      <span className="text-[11px] font-mono text-zinc-600">
+                      <span className="text-[11px] font-mono text-vt-text-subtle">
                         #{active.events.length - i}
                       </span>
-                      <span className="flex items-center gap-1 text-xs text-zinc-500">
+                      <span className="flex items-center gap-1 text-xs text-vt-text-muted">
                         <Clock className="w-3 h-3" />
                         {formatTime(ev.timestamp)}
                       </span>
@@ -171,60 +162,99 @@ export function SessionFlowView({ events }: Props) {
                       </span>
                     </div>
                     {ev.unresolved_issues && (
-                      <span
-                        className="flex items-center gap-1 text-xs text-amber-500"
-                        title={ev.unresolved_issues}
-                      >
+                      <span className="flex items-center gap-1 text-[10px] text-amber-500">
                         <AlertTriangle className="w-3 h-3" />
+                        {t('timeline.unresolved')}
                       </span>
                     )}
                   </div>
 
                   {/* Body */}
                   <div className="px-4 py-3">
-                    <h3 className="font-semibold text-sm text-zinc-100">
+                    <h3 className="font-semibold text-sm text-vt-text">
                       {ev.intent}
                     </h3>
                     {ev.original_prompt && (
-                      <p className="text-[11px] text-zinc-500/70 italic mt-1.5 leading-relaxed">
+                      <p className="text-[11px] text-vt-text-quote/70 italic mt-1.5 leading-relaxed">
                         &ldquo;{ev.original_prompt}&rdquo;
                       </p>
                     )}
-                    <p className="text-xs text-zinc-500 mt-1.5 leading-relaxed">
+                    <p className="text-xs text-vt-text-muted mt-1.5 leading-relaxed">
                       {ev.summary}
                     </p>
 
-                    {/* Files */}
-                    {filterBusinessFiles(ev.impactFiles).length > 0 && (
-                      <div className="mt-3 space-y-1">
-                        {filterBusinessFiles(ev.impactFiles).map((f) => (
-                          <button
-                            key={f.path}
-                            onClick={() => openFile(f.path)}
-                            className="flex items-center gap-2 w-full text-left px-3 py-1.5 rounded hover:bg-zinc-800/50 transition-colors group"
-                          >
-                            <span
-                              className={`w-2 h-2 rounded-full shrink-0 ${actionDot(f.action)}`}
-                            />
-                            <FileCode className="w-3.5 h-3.5 text-zinc-600 group-hover:text-zinc-400" />
-                            <code className="text-xs text-zinc-400 group-hover:text-zinc-200 font-mono">
-                              {f.path}
-                            </code>
-                            <span className="text-[10px] text-zinc-600 group-hover:text-zinc-500 ml-auto">
-                              {f.action}
-                            </span>
-                          </button>
-                        ))}
+                    {ev.unresolved_issues && (
+                      <div className="mt-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <AlertTriangle className="w-3 h-3 text-amber-500" />
+                          <span className="text-[10px] font-semibold text-amber-400">
+                            {t('timeline.unresolved')}
+                          </span>
+                        </div>
+                        <p className="text-xs text-amber-500/80 leading-relaxed">
+                          {ev.unresolved_issues}
+                        </p>
                       </div>
                     )}
+
+                    {/* Files */}
+                    {filterBusinessFiles(ev.impactFiles).length > 0 && (() => {
+                      const files = filterBusinessFiles(ev.impactFiles);
+                      const isOpen = expandedFiles.has(ev.id);
+                      return (
+                        <div className="mt-2.5">
+                          <button
+                            onClick={() => {
+                              setExpandedFiles(prev => {
+                                const next = new Set(prev);
+                                if (next.has(ev.id)) {
+                                  next.delete(ev.id);
+                                } else {
+                                  next.add(ev.id);
+                                }
+                                return next;
+                              });
+                            }}
+                            className="flex items-center gap-1 text-[10px] text-vt-text-muted hover:text-vt-text-alt transition-colors"
+                          >
+                            {isOpen
+                              ? <ChevronDown className="w-3 h-3" />
+                              : <ChevronRight className="w-3 h-3" />
+                            }
+                            {t('sessions.filesAffected', { count: files.length })}
+                          </button>
+                          {isOpen && (
+                            <div className="mt-1.5 space-y-1">
+                              {files.map((f) => (
+                                <button
+                                  key={f.path}
+                                  onClick={() => openFile(f.path)}
+                                  className="w-full flex items-center gap-2 text-left text-[11px] px-2 py-1 rounded hover:bg-vt-surface/50 transition-colors cursor-pointer group"
+                                >
+                                  <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border font-mono ${actionBadge(f.action)}`}>
+                                    {f.action}
+                                  </span>
+                                  <span className="font-mono text-vt-text-alt truncate group-hover:text-vt-text">
+                                    {f.path}
+                                  </span>
+                                  {f.description && (
+                                    <span className="text-vt-text-muted shrink-0 hidden sm:inline">&mdash; {f.description}</span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               ))}
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full text-zinc-500">
-            Select a session to view its conversation chain.
+          <div className="flex items-center justify-center h-full text-vt-text-muted">
+            {t('sessions.selectPrompt')}
           </div>
         )}
       </main>

@@ -7,7 +7,9 @@
       "Bash(npx vite *)",
       "WebSearch",
       "Bash(npx vsce *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "PowerShell(New-Item *)",
+      "Bash(node *)"
     ]
   }
 }

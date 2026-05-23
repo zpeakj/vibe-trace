@@ -1,8 +1,8 @@
 {
   "name": "vibetrace",
-  "displayName": "VibeTrace",
-  "description": "Vibe coding process chain recorder & visualizer — never lose context across agent windows",
-  "version": "0.1.0",
+  "displayName": "%vibetrace.displayName%",
+  "description": "%vibetrace.description%",
+  "version": "0.3.0",
   "publisher": "vibetrace",
   "author": {
     "name": "zpeakj"
@@ -33,11 +33,38 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "%vibetrace.config.title%",
+      "properties": {
+        "vibetrace.language": {
+          "type": "string",
+          "enum": ["auto", "en", "zh-cn"],
+          "enumDescriptions": [
+            "%vibetrace.config.language.auto%",
+            "%vibetrace.config.language.en%",
+            "%vibetrace.config.language.zh-cn%"
+          ],
+          "default": "auto",
+          "description": "%vibetrace.config.language%"
+        },
+        "vibetrace.theme": {
+          "type": "string",
+          "enum": ["auto", "light", "dark"],
+          "enumDescriptions": [
+            "%vibetrace.config.theme.auto%",
+            "%vibetrace.config.theme.light%",
+            "%vibetrace.config.theme.dark%"
+          ],
+          "default": "auto",
+          "description": "%vibetrace.config.theme%"
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {
           "id": "vibetrace",
-          "title": "VibeTrace",
+          "title": "%vibetrace.activitybar%",
           "icon": "res/logo.svg"
         }
       ]
@@ -46,17 +73,17 @@
       "vibetrace": [
         {
           "id": "vibetrace.globalTimeline",
-          "name": "Global Timeline",
+          "name": "%vibetrace.globalTimeline%",
           "icon": "$(history)"
         },
         {
           "id": "vibetrace.featureGraph",
-          "name": "Business Features",
+          "name": "%vibetrace.featureGraph%",
           "icon": "$(organization)"
         },
         {
           "id": "vibetrace.sessionChain",
-          "name": "Window Sessions",
+          "name": "%vibetrace.sessionChain%",
           "icon": "$(comment-discussion)"
         }
       ]
@@ -64,88 +91,118 @@
     "viewsWelcome": [
       {
         "view": "vibetrace.globalTimeline",
-        "contents": "## VibeTrace — Not Active\n\nAI conversation tracing is not yet set up for this project.\n\n[🚀 Initialize VibeTrace](command:vibetrace.initialize)\n\n---\n\nAfter initialization, AI agents will auto-record every code-change conversation into `.vibe/events/`. You'll see them here as a live timeline.",
+        "contents": "%vibetrace.welcome.globalTimeline%",
         "when": "!vibetrace:initialized"
       },
       {
         "view": "vibetrace.featureGraph",
-        "contents": "## VibeTrace — Not Active\n\nBusiness feature tracking is not yet set up.\n\n[🚀 Initialize VibeTrace](command:vibetrace.initialize)\n\n---\n\nAfter initialization, AI will auto-classify conversations into feature modules. You'll see a visual graph of how features evolve.",
+        "contents": "%vibetrace.welcome.featureGraph%",
         "when": "!vibetrace:initialized"
       },
       {
         "view": "vibetrace.sessionChain",
-        "contents": "## VibeTrace — Not Active\n\nSession tracing is not yet set up.\n\n[🚀 Initialize VibeTrace](command:vibetrace.initialize)\n\n---\n\nAfter initialization, each agent window's conversation will appear as a separate session chain.",
+        "contents": "%vibetrace.welcome.sessionChain%",
         "when": "!vibetrace:initialized"
       }
     ],
     "commands": [
       {
         "command": "vibetrace.refresh",
-        "title": "VibeTrace: Refresh Views",
+        "title": "%vibetrace.refresh%",
         "icon": "$(refresh)"
       },
       {
         "command": "vibetrace.openFile",
-        "title": "VibeTrace: Open Impact File"
+        "title": "%vibetrace.openFile%"
       },
       {
         "command": "vibetrace.editModule",
-        "title": "VibeTrace: Edit Module Name"
+        "title": "%vibetrace.editModule%"
       },
       {
         "command": "vibetrace.viewDetail",
-        "title": "VibeTrace: View Event Detail",
+        "title": "%vibetrace.viewDetail%",
         "icon": "$(eye)"
       },
       {
         "command": "vibetrace.viewFeatureFlow",
-        "title": "VibeTrace: View Feature Flowchart",
+        "title": "%vibetrace.viewFeatureFlow%",
         "icon": "$(graph)"
       },
       {
         "command": "vibetrace.viewSessionChain",
-        "title": "VibeTrace: View Session Chain",
+        "title": "%vibetrace.viewSessionChain%",
         "icon": "$(list-tree)"
       },
       {
         "command": "vibetrace.renameSession",
-        "title": "VibeTrace: Rename Session",
+        "title": "%vibetrace.renameSession%",
         "icon": "$(edit)"
       },
       {
         "command": "vibetrace.initialize",
-        "title": "VibeTrace: Initialize",
+        "title": "%vibetrace.initialize%",
         "icon": "$(rocket)"
       },
       {
         "command": "vibetrace.setupRules",
-        "title": "VibeTrace: Setup AI Rules File",
+        "title": "%vibetrace.setupRules%",
         "icon": "$(gear)"
       },
       {
         "command": "vibetrace.copyRules",
-        "title": "VibeTrace: Copy Cursor Rules to Clipboard",
+        "title": "%vibetrace.copyRules%",
         "icon": "$(clippy)"
       },
       {
         "command": "vibetrace.openDashboard",
-        "title": "VibeTrace: Open Dashboard",
+        "title": "%vibetrace.openDashboard%",
         "icon": "$(graph)"
       },
       {
         "command": "vibetrace.openTimeline",
-        "title": "VibeTrace: Open Global Timeline",
+        "title": "%vibetrace.openTimeline%",
         "icon": "$(history)"
       },
       {
         "command": "vibetrace.openBusinessTree",
-        "title": "VibeTrace: Open Business Features",
+        "title": "%vibetrace.openBusinessTree%",
         "icon": "$(organization)"
       },
       {
         "command": "vibetrace.openSessionFlow",
-        "title": "VibeTrace: Open Window Sessions",
+        "title": "%vibetrace.openSessionFlow%",
         "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "vibetrace.toggleCollapseTimeline",
+        "title": "%vibetrace.toggleCollapseTimeline%",
+        "icon": "$(collapse-all)"
+      },
+      {
+        "command": "vibetrace.toggleCollapseFeatures",
+        "title": "%vibetrace.toggleCollapseFeatures%",
+        "icon": "$(collapse-all)"
+      },
+      {
+        "command": "vibetrace.toggleCollapseSessions",
+        "title": "%vibetrace.toggleCollapseSessions%",
+        "icon": "$(collapse-all)"
+      },
+      {
+        "command": "vibetrace.export",
+        "title": "%vibetrace.export%",
+        "icon": "$(export)"
+      },
+      {
+        "command": "vibetrace.switchLanguage",
+        "title": "%vibetrace.switchLanguage%",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "vibetrace.switchTheme",
+        "title": "%vibetrace.switchTheme%",
+        "icon": "$(color-mode)"
       }
     ],
     "menus": {
@@ -168,6 +225,26 @@
         {
           "command": "vibetrace.openSessionFlow",
           "when": "view == vibetrace.sessionChain",
+          "group": "navigation"
+        },
+        {
+          "command": "vibetrace.toggleCollapseTimeline",
+          "when": "view == vibetrace.globalTimeline && vibetrace:initialized",
+          "group": "navigation"
+        },
+        {
+          "command": "vibetrace.toggleCollapseFeatures",
+          "when": "view == vibetrace.featureGraph && vibetrace:initialized",
+          "group": "navigation"
+        },
+        {
+          "command": "vibetrace.toggleCollapseSessions",
+          "when": "view == vibetrace.sessionChain && vibetrace:initialized",
+          "group": "navigation"
+        },
+        {
+          "command": "vibetrace.export",
+          "when": "view == vibetrace.globalTimeline && vibetrace:initialized",
           "group": "navigation"
         }
       ],
@@ -203,9 +280,13 @@
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
     "sharp": "^0.34.5",
     "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.17"
   }
 }

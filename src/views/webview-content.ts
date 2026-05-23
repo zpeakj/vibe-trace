@@ -1,4 +1,5 @@
 import { VibeEvent } from '../types';
+import { t } from '../i18n';
 
 /**
  * Generates HTML content for Webview panels.
@@ -95,7 +96,7 @@ function formatDate(ts: string): string {
 
 export function eventDetailHtml(event: VibeEvent): string {
   const files = event.impactFiles.map(f => `
-    <li class="file-item" onclick="openFile('${escapeAttr(f.path)}')" title="Click to open">
+    <li class="file-item" onclick="openFile('${escapeAttr(f.path)}')" title="${escapeAttr(t('html.detail.clickToOpen'))}">
       <span class="badge ${badgeClass(f.action)}">${f.action}</span>
       <span><code>${escapeHtml(f.path)}</code></span>
       <span style="color:var(--vscode-descriptionForeground)">${escapeHtml(f.description)}</span>
@@ -104,14 +105,14 @@ export function eventDetailHtml(event: VibeEvent): string {
 
   const originalPrompt = event.original_prompt ? `
     <div class="original-prompt">
-      <strong>Original Prompt</strong>
+      <strong>${escapeHtml(t('html.detail.originalPrompt'))}</strong>
       <p>${escapeHtml(event.original_prompt)}</p>
     </div>
   ` : '';
 
   const unresolved = event.unresolved_issues ? `
     <div class="unresolved">
-      <h3>Unresolved Issues</h3>
+      <h3>${escapeHtml(t('html.detail.unresolved'))}</h3>
       <p>${escapeHtml(event.unresolved_issues)}</p>
     </div>
   ` : '';
@@ -120,22 +121,22 @@ export function eventDetailHtml(event: VibeEvent): string {
     <h1>${escapeHtml(event.intent)}</h1>
 
     <dl class="meta">
-      <dt>ID</dt><dd><code>${escapeHtml(event.id)}</code></dd>
-      <dt>Time</dt><dd>${formatDate(event.timestamp)}</dd>
-      <dt>Session</dt><dd>${escapeHtml(event.session_id)}</dd>
-      <dt>Module</dt><dd><strong>${escapeHtml(event.module)}</strong></dd>
+      <dt>${escapeHtml(t('html.detail.id'))}</dt><dd><code>${escapeHtml(event.id)}</code></dd>
+      <dt>${escapeHtml(t('html.detail.time'))}</dt><dd>${formatDate(event.timestamp)}</dd>
+      <dt>${escapeHtml(t('html.detail.session'))}</dt><dd>${escapeHtml(event.session_id)}</dd>
+      <dt>${escapeHtml(t('html.detail.module'))}</dt><dd><strong>${escapeHtml(event.module)}</strong></dd>
     </dl>
 
     ${originalPrompt}
 
     <div class="summary-box">
-      <strong>AI Summary</strong>
+      <strong>${escapeHtml(t('html.detail.aiSummary'))}</strong>
       <p>${escapeHtml(event.summary)}</p>
     </div>
 
     ${unresolved}
 
-    <h2>Impact Files (${event.impactFiles.length})</h2>
+    <h2>${escapeHtml(t('html.detail.impactFiles', { count: event.impactFiles.length }))}</h2>
     <ul class="file-list">${files}</ul>
 
     ${SCRIPT}
@@ -192,7 +193,7 @@ export function featureFlowHtml(module: string, events: VibeEvent[]): string {
 
   return `<!DOCTYPE html><html><head>${STYLE}</head><body>
     <h1>${escapeHtml(module)}</h1>
-    <p style="color:var(--vscode-descriptionForeground)">${events.length} event${events.length > 1 ? 's' : ''} in this feature</p>
+    <p style="color:var(--vscode-descriptionForeground)">${escapeHtml(t('html.feature.subtitle', { count: events.length }))}</p>
 
     <div class="flowchart">
       <svg width="${svgW}" height="${totalH}" viewBox="0 0 ${svgW} ${totalH}">
@@ -201,13 +202,13 @@ export function featureFlowHtml(module: string, events: VibeEvent[]): string {
       </svg>
     </div>
 
-    <h2>Details</h2>
+    <h2>${escapeHtml(t('html.feature.details'))}</h2>
     ${sorted.map(e => `
       <div class="summary-box" style="margin:8px 0;">
         <strong>${escapeHtml(e.intent)}</strong>
         <span style="color:var(--vscode-descriptionForeground);margin-left:8px;">${formatDate(e.timestamp)}</span>
         <p style="margin-top:4px;">${escapeHtml(e.summary)}</p>
-        ${e.unresolved_issues ? `<p style="color:var(--vscode-inputValidation-warningForeground);margin-top:4px;">Unresolved: ${escapeHtml(e.unresolved_issues)}</p>` : ''}
+        ${e.unresolved_issues ? `<p style="color:var(--vscode-inputValidation-warningForeground);margin-top:4px;">${escapeHtml(t('html.feature.unresolved', { text: e.unresolved_issues }))}</p>` : ''}
       </div>
     `).join('')}
 
@@ -247,7 +248,7 @@ export function sessionChainHtml(sessionId: string, events: VibeEvent[]): string
         <rect x="${n.x}" y="${n.y}" width="${nodeW}" height="6" fill="${modColor}" rx="2" />
         <text x="${n.x + 8}" y="${n.y + 22}" font-weight="bold" font-size="11">${escapeHtml(truncate(n.event.intent, 38))}</text>
         <text x="${n.x + 8}" y="${n.y + 38}" fill="var(--vscode-descriptionForeground)" font-size="10">
-          ${escapeHtml(n.event.module)} · ${n.event.impactFiles.length} file${n.event.impactFiles.length !== 1 ? 's' : ''}
+          ${escapeHtml(n.event.module)} · ${escapeHtml(t('common.files', { count: n.event.impactFiles.length }))}
         </text>
         <text x="${n.x + 8}" y="${n.y + 52}" fill="var(--vscode-descriptionForeground)" font-size="10">
           ${formatDate(n.event.timestamp)}
@@ -267,7 +268,7 @@ export function sessionChainHtml(sessionId: string, events: VibeEvent[]): string
 
   return `<!DOCTYPE html><html><head>${STYLE}</head><body>
     <h1>${escapeHtml(sessionId)}</h1>
-    <p style="color:var(--vscode-descriptionForeground)">${events.length} conversation turn${events.length > 1 ? 's' : ''} in this session</p>
+    <p style="color:var(--vscode-descriptionForeground)">${escapeHtml(t('html.session.subtitle', { count: events.length }))}</p>
 
     <div class="flowchart">
       <svg width="${svgW}" height="${totalH}" viewBox="0 0 ${svgW} ${totalH}">
@@ -276,13 +277,13 @@ export function sessionChainHtml(sessionId: string, events: VibeEvent[]): string
       </svg>
     </div>
 
-    <h2>Conversation Log</h2>
+    <h2>${escapeHtml(t('html.session.conversationLog'))}</h2>
     ${sorted.map((e, i) => `
       <div class="summary-box" style="margin:8px 0;">
         <strong>#${i + 1} · ${escapeHtml(e.intent)}</strong>
         <span style="color:var(--vscode-descriptionForeground);margin-left:8px;">[${escapeHtml(e.module)}]</span>
         <p style="margin-top:4px;">${escapeHtml(e.summary)}</p>
-        ${e.unresolved_issues ? `<p style="color:var(--vscode-inputValidation-warningForeground);margin-top:4px;">Unresolved: ${escapeHtml(e.unresolved_issues)}</p>` : ''}
+        ${e.unresolved_issues ? `<p style="color:var(--vscode-inputValidation-warningForeground);margin-top:4px;">${escapeHtml(t('html.session.unresolved', { text: e.unresolved_issues }))}</p>` : ''}
       </div>
     `).join('')}
 

@@ -1,5 +1,58 @@
 @import "tailwindcss";
 
+/* ── Theme design tokens ────────────────────────────── */
+/* Light (default) + Dark (via .vt-dark) via CSS custom properties */
+
+@layer base {
+  :root {
+    --vt-bg: #fafafa;
+    --vt-bg-alt: #ffffff;
+    --vt-surface: #f4f4f5;
+    --vt-surface-alt: #e4e4e7;
+    --vt-border: #e4e4e7;
+    --vt-border-alt: #d4d4d8;
+    --vt-text: #18181b;
+    --vt-text-alt: #3f3f46;
+    --vt-text-muted: #71717a;
+    --vt-text-subtle: #a1a1aa;
+    --vt-text-quote: #52525b;
+    --vt-empty-icon: #d4d4d8;
+  }
+
+  :root.vt-dark {
+    --vt-bg: #09090b;
+    --vt-bg-alt: #18181b;
+    --vt-surface: #27272a;
+    --vt-surface-alt: #3f3f46;
+    --vt-border: #27272a;
+    --vt-border-alt: #3f3f46;
+    --vt-text: #f4f4f5;
+    --vt-text-alt: #d4d4d8;
+    --vt-text-muted: #a1a1aa;
+    --vt-text-subtle: #71717a;
+    --vt-text-quote: #a1a1aa;
+    --vt-empty-icon: #3f3f46;
+  }
+}
+
+/* Register as Tailwind v4 theme colors so components can use bg-vt-bg, text-vt-text, etc. */
+@theme {
+  --color-vt-bg: var(--vt-bg);
+  --color-vt-bg-alt: var(--vt-bg-alt);
+  --color-vt-surface: var(--vt-surface);
+  --color-vt-surface-alt: var(--vt-surface-alt);
+  --color-vt-border: var(--vt-border);
+  --color-vt-border-alt: var(--vt-border-alt);
+  --color-vt-text: var(--vt-text);
+  --color-vt-text-alt: var(--vt-text-alt);
+  --color-vt-text-muted: var(--vt-text-muted);
+  --color-vt-text-subtle: var(--vt-text-subtle);
+  --color-vt-text-quote: var(--vt-text-quote);
+  --color-vt-empty-icon: var(--vt-empty-icon);
+}
+
+/* ── Shared animations ───────────────────────────────── */
+
 @keyframes slide-in {
   from {
     transform: translateX(100%);
@@ -15,27 +68,34 @@
   animation: slide-in 0.25s ease-out;
 }
 
-/* Override ReactFlow Controls default light theme */
+/* ── ReactFlow Controls theme-aware override ─────────── */
+
 .react-flow__controls {
-  background: #1f2937 !important;
-  border: 1px solid #374151 !important;
+  background: var(--vt-surface-alt) !important;
+  border: 1px solid var(--vt-border-alt) !important;
   border-radius: 8px !important;
   padding: 4px !important;
 }
 
 .react-flow__controls-button {
-  background: #374151 !important;
+  background: var(--vt-surface) !important;
   border: none !important;
   border-radius: 4px !important;
   width: 28px !important;
   height: 28px !important;
-  color: #e5e7eb !important;
+  color: var(--vt-text) !important;
 }
 
 .react-flow__controls-button:hover {
-  background: #4b5563 !important;
+  background: var(--vt-border-alt) !important;
 }
 
 .react-flow__controls-button svg {
-  fill: #e5e7eb !important;
+  fill: var(--vt-text) !important;
+}
+
+/* ── ReactFlow MiniMap theme override ────────────────── */
+
+.react-flow__minimap {
+  background: var(--vt-bg-alt) !important;
 }

@@ -3,6 +3,7 @@ import * as path from 'path';
 import { VibeEvent, ImpactFile, ViewStatus } from '../types';
 import { DataProvider, isProjectInitialized } from '../data-provider';
 import { formatTimestamp, truncate } from '../utils';
+import { t } from '../i18n';
 
 /**
  * Tab A — Global Timeline.
@@ -11,6 +12,8 @@ import { formatTimestamp, truncate } from '../utils';
 export class GlobalTimelineProvider implements vscode.TreeDataProvider<Entry> {
   private _onDidChangeTreeData = new vscode.EventEmitter<Entry | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+  private _allCollapsed = true;
+  private _version = 0;
 
   constructor(private dataProvider: DataProvider) {
     dataProvider.onDidChange(() => this.refresh());
@@ -18,6 +21,16 @@ export class GlobalTimelineProvider implements vscode.TreeDataProvider<Entry> {
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
+  }
+
+  toggleCollapse(): void {
+    this._allCollapsed = !this._allCollapsed;
+    this._version++;
+    this.refresh();
+  }
+
+  get allCollapsed(): boolean {
+    return this._allCollapsed;
   }
 
   getTreeItem(element: Entry): vscode.TreeItem {
@@ -61,25 +74,28 @@ export class GlobalTimelineProvider implements vscode.TreeDataProvider<Entry> {
   private eventTreeItem(event: VibeEvent): vscode.TreeItem {
     const timeStr = formatTimestamp(event.timestamp);
 
+    const collapsible = this._allCollapsed
+      ? vscode.TreeItemCollapsibleState.Collapsed
+      : vscode.TreeItemCollapsibleState.Expanded;
     const item = new vscode.TreeItem(
       truncate(event.intent, 60),
-      vscode.TreeItemCollapsibleState.Expanded
+      collapsible
     );
     item.description = `${event.module} · ${timeStr}`;
     item.tooltip = [
-      event.original_prompt ? `**Original Prompt:** ${event.original_prompt}` : '',
-      `**Intent:** ${event.intent}`,
-      `**Summary:** ${event.summary}`,
-      `**Module:** ${event.module}`,
-      `**Session:** ${event.session_id}`,
-      `**Time:** ${timeStr}`,
-      event.unresolved_issues ? `\n⚠️ **Unresolved:** ${event.unresolved_issues}` : '',
+      event.original_prompt ? `${t('tooltip.originalPrompt')} ${event.original_prompt}` : '',
+      `${t('tooltip.intent')} ${event.intent}`,
+      `${t('tooltip.summary')} ${event.summary}`,
+      `${t('tooltip.module')} ${event.module}`,
+      `${t('tooltip.session')} ${event.session_id}`,
+      `${t('tooltip.time')} ${timeStr}`,
+      event.unresolved_issues ? `${t('tooltip.unresolved')} ${event.unresolved_issues}` : '',
     ].filter(Boolean).join('\n');
     item.iconPath = event.unresolved_issues
       ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('editorWarning.foreground'))
       : new vscode.ThemeIcon('circle-outline');
     item.contextValue = 'vibeEvent';
-    item.id = event.id;
+    item.id = `${event.id}@${this._version}`;
     return item;
   }
 
@@ -89,12 +105,12 @@ export class GlobalTimelineProvider implements vscode.TreeDataProvider<Entry> {
       vscode.TreeItemCollapsibleState.None
     );
     item.description = `${file.action} — ${file.description}`;
-    item.tooltip = `**File:** ${file.path}\n**Action:** ${file.action}\n**Description:** ${file.description}`;
+    item.tooltip = `${t('tooltip.file')} ${file.path}\n${t('tooltip.action')} ${file.action}\n${t('tooltip.description')} ${file.description}`;
     item.iconPath = this.fileActionIcon(file.action);
     item.contextValue = 'impactFile';
     item.command = {
       command: 'vibetrace.openFile',
-      title: 'Open File',
+      title: t('common.openFile'),
       arguments: [file.path],
     };
     return item;
@@ -137,13 +153,13 @@ class StatusEntry implements TreeEntry {
   constructor(status: ViewStatus) {
     if (status === 'empty') {
       this.treeItem = new vscode.TreeItem(
-        'No events recorded yet',
+        t('timeline.empty.title'),
         vscode.TreeItemCollapsibleState.None
       );
-      this.treeItem.description = 'Start a conversation with AI to begin tracing';
+      this.treeItem.description = t('timeline.empty.desc');
       this.treeItem.iconPath = new vscode.ThemeIcon('info');
     } else {
-      this.treeItem = new vscode.TreeItem('Ready');
+      this.treeItem = new vscode.TreeItem(t('common.ready'));
     }
   }
 }

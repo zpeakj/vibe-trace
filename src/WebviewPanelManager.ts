@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { readFileSync } from 'fs';
 import { DataProvider } from './data-provider';
+import { getLocale } from './i18n';
 
 /**
  * Manages the VibeTrace Dashboard webview panel.
@@ -66,6 +67,11 @@ export class WebviewPanelManager {
       null,
       this.disposables
     );
+  }
+
+  /** Re-send events with current locale (called on language switch) */
+  pushLocale(): void {
+    this.sendEvents();
   }
 
   dispose(): void {
@@ -146,10 +152,13 @@ export class WebviewPanelManager {
 
   private sendEvents(): void {
     const root = this.dataProvider.getWorkspaceRoot();
+    const theme = vscode.workspace.getConfiguration('vibetrace').get<string>('theme', 'auto');
     this.panel?.webview.postMessage({
       command: 'eventsData',
       events: this.dataProvider.getAll(),
       projectName: root ? path.basename(root) : 'Untitled',
+      locale: getLocale(),
+      theme: theme ?? 'auto',
     });
   }
 

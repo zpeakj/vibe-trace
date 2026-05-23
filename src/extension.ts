@@ -8,12 +8,15 @@ import { SessionTreeProvider } from './views/session-tree';
 import { eventDetailHtml, featureFlowHtml, sessionChainHtml } from './views/webview-content';
 import { CURSOR_RULES_CONTENT, setupRules, EDITOR_LABELS, type EditorType, RULES_FILES } from './rules';
 import { WebviewPanelManager } from './WebviewPanelManager';
+import { exportVibeData } from './export';
+import { refreshLocale, onConfigChange, t } from './i18n';
 
 let dataProvider: DataProvider;
 let moduleDict: ModuleDict;
 let dashboardManager: WebviewPanelManager;
 
 export async function activate(context: vscode.ExtensionContext) {
+  refreshLocale();
   const root = getWorkspaceRoot();
   const initialized = root ? isProjectInitialized(root) : false;
 
@@ -65,11 +68,11 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('vibetrace.initialize', async () => {
       const root = getWorkspaceRoot();
       if (!root) {
-        vscode.window.showWarningMessage('VibeTrace: Open a workspace folder first.');
+        vscode.window.showWarningMessage(t('notify.noWorkspace'));
         return;
       }
       if (isProjectInitialized(root)) {
-        vscode.window.showInformationMessage('VibeTrace is already initialized for this project.');
+        vscode.window.showInformationMessage(t('notify.alreadyInitialized'));
         return;
       }
 
@@ -100,7 +103,7 @@ export async function activate(context: vscode.ExtensionContext) {
       const label = EDITOR_LABELS[editorType];
       const filename = RULES_FILES[editorType];
       vscode.window.showInformationMessage(
-        `VibeTrace initialized for ${label} (${filename}). AI will now auto-record conversations.`
+        t('notify.initialized', { editor: label, file: filename })
       );
     }),
 
@@ -110,6 +113,27 @@ export async function activate(context: vscode.ExtensionContext) {
       featureTree.refresh();
       sessionTree.refresh();
       log('Views refreshed');
+    }),
+
+    // Toggle collapse/expand for each view
+    vscode.commands.registerCommand('vibetrace.toggleCollapseTimeline', () => {
+      globalTimeline.toggleCollapse();
+    }),
+    vscode.commands.registerCommand('vibetrace.toggleCollapseFeatures', () => {
+      featureTree.toggleCollapse();
+    }),
+    vscode.commands.registerCommand('vibetrace.toggleCollapseSessions', () => {
+      sessionTree.toggleCollapse();
+    }),
+
+    // Export .vibe data as zip
+    vscode.commands.registerCommand('vibetrace.export', async () => {
+      const root = dataProvider.getWorkspaceRoot();
+      if (!root) {
+        vscode.window.showWarningMessage(t('notify.noWorkspace'));
+        return;
+      }
+      await exportVibeData(root);
     }),
 
     // Open full dashboard (default tab)
@@ -134,7 +158,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('vibetrace.openFile', async (filePath: string) => {
       const root = dataProvider.getWorkspaceRoot();
       if (!root) {
-        vscode.window.showWarningMessage('No workspace folder open.');
+        vscode.window.showWarningMessage(t('notify.noWorkspaceFile'));
         return;
       }
       const fullPath = path.join(root, filePath);
@@ -143,7 +167,7 @@ export async function activate(context: vscode.ExtensionContext) {
         const doc = await vscode.workspace.openTextDocument(uri);
         await vscode.window.showTextDocument(doc, { preview: false });
       } catch {
-        vscode.window.showErrorMessage(`File not found: ${filePath}`);
+        vscode.window.showErrorMessage(t('notify.fileNotFound', { path: filePath }));
       }
     })
   );
@@ -158,11 +182,11 @@ export async function activate(context: vscode.ExtensionContext) {
       if (!event) { return; }
 
       const newModule = await vscode.window.showInputBox({
-        title: 'Edit Module Name',
-        prompt: 'Enter the correct module name for this event',
+        title: t('input.editModule.title'),
+        prompt: t('input.editModule.prompt'),
         value: event.module,
         validateInput: (value) => {
-          if (!value.trim()) { return 'Module name cannot be empty'; }
+          if (!value.trim()) { return t('input.editModule.emptyError'); }
           return undefined;
         },
       });
@@ -185,7 +209,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
       const panel = vscode.window.createWebviewPanel(
         'vibetrace.eventDetail',
-        `Event: ${truncateLabel(event.intent)}`,
+        t('panel.event', { title: truncateLabel(event.intent) }),
         vscode.ViewColumn.One,
         { enableScripts: true, retainContextWhenHidden: true }
       );
@@ -211,7 +235,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
       const panel = vscode.window.createWebviewPanel(
         'vibetrace.featureFlow',
-        `Feature: ${moduleName}`,
+        t('panel.feature', { name: moduleName }),
         vscode.ViewColumn.One,
         { enableScripts: true, retainContextWhenHidden: true }
       );
@@ -237,7 +261,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
       const panel = vscode.window.createWebviewPanel(
         'vibetrace.sessionChain',
-        `Session: ${sessionId}`,
+        t('panel.session', { name: sessionId }),
         vscode.ViewColumn.One,
         { enableScripts: true, retainContextWhenHidden: true }
       );
@@ -259,13 +283,13 @@ export async function activate(context: vscode.ExtensionContext) {
       if (!sessionId) { return; }
 
       const newName = await vscode.window.showInputBox({
-        title: 'Rename Session',
-        prompt: 'Enter a readable name for this session window',
+        title: t('input.renameSession.title'),
+        prompt: t('input.renameSession.prompt'),
         value: sessionId,
         validateInput: (value) => {
-          if (!value.trim()) { return 'Session name cannot be empty'; }
-          if (value === sessionId) { return 'Name is unchanged'; }
-          if (dataProvider.getBySession(value).length > 0) { return 'A session with this name already exists'; }
+          if (!value.trim()) { return t('input.renameSession.emptyError'); }
+          if (value === sessionId) { return t('input.renameSession.unchanged'); }
+          if (dataProvider.getBySession(value).length > 0) { return t('input.renameSession.duplicate'); }
           return undefined;
         },
       });
@@ -282,7 +306,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('vibetrace.setupRules', async () => {
       const root = dataProvider.getWorkspaceRoot();
       if (!root) {
-        vscode.window.showWarningMessage('VibeTrace: Open a workspace folder first.');
+        vscode.window.showWarningMessage(t('notify.noWorkspace'));
         return;
       }
       const editorType = await pickEditor();
@@ -291,18 +315,18 @@ export async function activate(context: vscode.ExtensionContext) {
       const filename = RULES_FILES[editorType];
       const label = EDITOR_LABELS[editorType];
       if (result === 'created') {
-        vscode.window.showInformationMessage(`VibeTrace: ${filename} created for ${label}.`);
+        vscode.window.showInformationMessage(t('notify.rulesCreated', { file: filename, editor: label }));
       } else if (result === 'updated') {
-        vscode.window.showInformationMessage(`VibeTrace: ${filename} updated with VibeTrace recording rules.`);
+        vscode.window.showInformationMessage(t('notify.rulesUpdated', { file: filename }));
       } else {
-        vscode.window.showInformationMessage(`VibeTrace: ${filename} is already configured.`);
+        vscode.window.showInformationMessage(t('notify.rulesUnchanged', { file: filename }));
       }
     }),
 
     // Copy rules to clipboard (fallback for manual setup)
     vscode.commands.registerCommand('vibetrace.copyRules', async () => {
       await vscode.env.clipboard.writeText(CURSOR_RULES_CONTENT);
-      vscode.window.showInformationMessage('VibeTrace: Rules copied to clipboard.');
+      vscode.window.showInformationMessage(t('notify.rulesCopied'));
     }),
   );
 
@@ -322,10 +346,63 @@ export async function activate(context: vscode.ExtensionContext) {
     100
   );
   statusBar.command = 'vibetrace.refresh';
-  statusBar.text = '$(history) VibeTrace';
-  statusBar.tooltip = 'VibeTrace — Click to refresh';
+  statusBar.text = t('statusbar.text');
+  statusBar.tooltip = t('statusbar.tooltip');
   statusBar.show();
   context.subscriptions.push(statusBar);
+
+  // ── Config change watcher ──────────────────────────
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (onConfigChange(e)) {
+        globalTimeline.refresh();
+        featureTree.refresh();
+        sessionTree.refresh();
+        statusBar.text = t('statusbar.text');
+        statusBar.tooltip = t('statusbar.tooltip');
+        dashboardManager.pushLocale();
+      }
+      if (e.affectsConfiguration('vibetrace.theme')) {
+        dashboardManager.pushLocale();
+      }
+    })
+  );
+
+  // ── Switch language command ────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibetrace.switchLanguage', async () => {
+      const config = vscode.workspace.getConfiguration('vibetrace');
+      const current = config.get<string>('language', 'auto');
+      const options: string[] = ['auto', 'en', 'zh-cn'];
+      const labels: Record<string, string> = {
+        auto: 'Auto (follow editor)',
+        en: 'English',
+        'zh-cn': '简体中文',
+      };
+      const idx = options.indexOf(current ?? 'auto');
+      const next = options[(idx + 1) % options.length];
+      await config.update('language', next, vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage(`VibeTrace: ${labels[next]}`);
+    })
+  );
+
+  // ── Switch theme command ───────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vibetrace.switchTheme', async () => {
+      const config = vscode.workspace.getConfiguration('vibetrace');
+      const current = config.get<string>('theme', 'auto');
+      const options: string[] = ['auto', 'light', 'dark'];
+      const labels: Record<string, string> = {
+        auto: 'Auto (follow editor)',
+        light: 'Light',
+        dark: 'Dark',
+      };
+      const idx = options.indexOf(current ?? 'auto');
+      const next = options[(idx + 1) % options.length];
+      await config.update('theme', next, vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage(`VibeTrace theme: ${labels[next]}`);
+    })
+  );
 
   log('VibeTrace activated');
 }
@@ -345,13 +422,13 @@ function getWorkspaceRoot(): string | undefined {
 
 async function pickEditor(): Promise<EditorType | undefined> {
   const items: vscode.QuickPickItem[] = [
-    { label: '$(symbol-class) Cursor', description: '.cursor/rules/vibetrace-core.mdc', detail: 'Cursor editor (cursor.com)' },
-    { label: '$(symbol-constructor) Codex', description: 'AGENTS.md', detail: 'OpenAI Codex CLI / Codex Web' },
-    { label: '$(symbol-module) Trae', description: '.trae/rules/project_rules.md', detail: 'Trae editor (字节跳动)' },
+    { label: t('editor.cursor.label'), description: t('editor.cursor.desc'), detail: t('editor.cursor.detail') },
+    { label: t('editor.codex.label'), description: t('editor.codex.desc'), detail: t('editor.codex.detail') },
+    { label: t('editor.trae.label'), description: t('editor.trae.desc'), detail: t('editor.trae.detail') },
   ];
 
   const picked = await vscode.window.showQuickPick(items, {
-    placeHolder: 'Select your AI editor to configure rules file',
+    placeHolder: t('editor.pickPlaceholder'),
   });
 
   if (!picked) { return undefined; }
